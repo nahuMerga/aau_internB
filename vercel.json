@@ -1,0 +1,13 @@
+{
+    "builds": [{
+        "src": "aau_internB/wsgi.py",
+        "use": "@vercel/python",
+        "config": { "maxLambdaSize": "50mb", "runtime": "python3.12" }
+    }],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "aau_internB/wsgi.py"
+        }
+    ]
+}
