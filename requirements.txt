@@ -1,0 +1,9 @@
+Django
+Django-REST-framework
+psycopg2-binary
+django-cors-headers
+djangorestframework-simplejwt
+python-telegram-bot
+Pillow
+apscheduler
+whitenoise
