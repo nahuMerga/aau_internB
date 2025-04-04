@@ -10,11 +10,10 @@ https://docs.djangoproject.com/en/5.1/howto/deployment/wsgi/
 import os
 
 from django.core.wsgi import get_wsgi_application
-from vercel_wsgi import handle
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'aau_internB.settings')
 
 application = get_wsgi_application()
 
 # Use vercel_wsgi handle
-app = handle(application)
+app = application
