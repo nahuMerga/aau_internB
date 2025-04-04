@@ -7,4 +7,5 @@ python-telegram-bot
 Pillow
 apscheduler
 whitenoise
-gunicorn
+gunicorn==20.1.0
+
