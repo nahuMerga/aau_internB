@@ -8,3 +8,4 @@ Pillow
 apscheduler
 whitenoise
 gunicorn
+vercel-wsgi
