@@ -14,8 +14,6 @@ pip3 install -r requirements.txt
 # Run database migrations (important step for Django setup)
 python3 manage.py migrate --no-input
 
-# Collect static files (necessary for serving static content in production)
-python3 manage.py collectstatic --no-input
 
 # Start the Gunicorn server
 echo "Starting Gunicorn server..."
