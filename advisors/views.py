@@ -100,8 +100,8 @@ class LogoutView(APIView):
             return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
         
 class AdvisorStudentsView(APIView):
-    """Get a list of students assigned to the logged-in advisor, including their offer letter & reports"""
-    permission_classes = [AllowAny]  # No authentication enforced
+    """Get a list of students assigned to the logged-in advisor, including offer letter, reports, and dashboard stats."""
+    permission_classes = [AllowAny]  # Update to IsAuthenticated if you want to enforce login
 
     def get(self, request):
         advisor = getattr(request.user, "advisor", None)
@@ -110,11 +110,23 @@ class AdvisorStudentsView(APIView):
 
         students = Student.objects.filter(assigned_advisor=advisor)
 
-        # Serialize with nested internship details
         student_data = []
+        total_assigned_students = students.count()
+        pending_approval_count = 0
+        reports_to_review_count = 0
+
         for student in students:
             offer_letter = InternshipOfferLetter.objects.filter(student=student).first()
             reports = InternshipReport.objects.filter(student=student)
+
+            # Count pending approvals
+            if student.status == "pending":  # Adjust based on your actual statuses
+                pending_approval_count += 1
+
+            # Count unreviewed reports
+            for report in reports:
+                if not getattr(report, "is_reviewed", False):  # Adjust if field is named differently
+                    reports_to_review_count += 1
 
             student_data.append({
                 "id": student.id,
@@ -126,11 +138,21 @@ class AdvisorStudentsView(APIView):
                 "start_date": student.start_date,
                 "end_date": student.end_date,
                 "student_grade": student.student_grade,
+                "company_name": offer_letter.company if offer_letter else None,
                 "offer_letter": InternshipOfferLetterSerializer(offer_letter).data if offer_letter else None,
                 "internship_reports": InternshipReportSerializer(reports, many=True).data
             })
 
-        return Response(student_data, status=status.HTTP_200_OK)
+        response_data = {
+            "students": student_data,
+            "stats": {
+                "assigned_students": total_assigned_students,
+                "pending_approval": pending_approval_count,
+                "reports_to_review": reports_to_review_count
+            }
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class StudentDetailView(APIView):
@@ -160,8 +182,11 @@ class StudentDetailView(APIView):
             InternshipOfferLetterSerializer(offer_letter).data if offer_letter else None
         )
         student_data["internship_reports"] = InternshipReportSerializer(reports, many=True).data
+        student_data["company"] = offer_letter.company if offer_letter else None  # ✅ Added line
 
         return Response(student_data, status=status.HTTP_200_OK)
+
+
 
 
 
