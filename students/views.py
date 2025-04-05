@@ -24,13 +24,14 @@ class StudentRegistrationView(APIView):
             return Response({"OTPVerified": False, "error": "OTP verification failed."}, status=status.HTTP_400_BAD_REQUEST)
 
         internship_period = InternshipPeriod.objects.order_by("-registration_end").first()
-        if not internship_period:
-            return Response({"error": "Internship registration period is not set."}, status=status.HTTP_400_BAD_REQUEST)
-
         today = timezone.now().date()
+        if not internship_period.is_registration_active():
+            return Response({"error": "The registration period has ended."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Check if internship calendar dates are valid
+        if not internship_period.is_valid_calendar():
+            return Response({"error": "The internship calendar dates are invalid."}, status=status.HTTP_400_BAD_REQUEST)
 
-        registration_ongoing = today <= internship_period.registration_end
 
         third_year_student = ThirdYearStudentList.objects.filter(university_id=university_id).first()
         if not third_year_student:
