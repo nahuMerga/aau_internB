@@ -52,8 +52,11 @@ class InternshipOfferLetterSerializer(serializers.ModelSerializer):
     class Meta:
         model = InternshipOfferLetter
         fields = '__all__'
+        read_only_fields = ['advisor_approved', 'approval_date']
 
 class InternshipReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = InternshipReport
         fields = '__all__'
+        read_only_fields = ['advisor_approved', 'approval_date']
+
