@@ -34,7 +34,10 @@ class Student(models.Model):
 class InternshipOfferLetter(models.Model):
     student = models.OneToOneField(Student, on_delete=models.CASCADE)
     document = models.FileField(upload_to='offer_letters/')
-    advisor_approved = models.BooleanField(default=False)
+    advisor_approved = models.CharField(
+        max_length=10, choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')],
+        default='Pending'
+    )
     submission_date = models.DateTimeField(auto_now_add=True)
     approval_date = models.DateTimeField(null=True, blank=True)
 
@@ -44,7 +47,10 @@ class InternshipReport(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     document = models.FileField(upload_to='reports/')
     submission_date = models.DateTimeField(auto_now_add=True)
-    advisor_approved = models.BooleanField(default=False)
+    advisor_approved = models.CharField(
+        max_length=10, choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')],
+        default='Pending'
+    )
     approval_date = models.DateTimeField(null=True, blank=True)
     report_number = models.IntegerField(choices=REPORT_CHOICES)
 
