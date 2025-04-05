@@ -38,6 +38,12 @@ class InternshipPeriod(models.Model):
         from django.utils import timezone
         now = timezone.now().date()
         return self.registration_start <= now <= self.registration_end
+
+    def is_valid_calendar(self):
+        """Check if internship start and end dates are valid (start before end)."""
+        if self.internship_start > self.internship_end:
+            return False
+        return True
     
     def __str__(self):
         return f"Registration: {self.registration_start} to {self.registration_end}"
