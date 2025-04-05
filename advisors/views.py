@@ -187,18 +187,11 @@ class StudentDetailView(APIView):
         return Response(student_data, status=status.HTTP_200_OK)
 
 
-
-
-
 class ApproveOfferLetterView(APIView):
     """Approve or reject an internship offer letter using the student's university_id"""
     permission_classes = [IsAuthenticated]
 
     def put(self, request):
-        # It seems like there is a typo in your code snippet. The variable `univer` is not defined or
-        # used anywhere in the provided code. If you could provide more context or clarify where
-        # `univer` is supposed to be used, I would be happy to help you with that specific part of the
-        # code.
         university_id = request.data.get("university_id")
         status_value = request.data.get("status")
 
@@ -222,23 +215,20 @@ class ApproveOfferLetterView(APIView):
                 student__assigned_advisor=advisor
             )
 
-        # Convert "Approved"/"Rejected" to Boolean
-        offer_letter.advisor_approved = status_value == "Approved"
-
-        # Set approval date if approved
+        # Handling approve/reject logic
         if status_value == "Approved":
+            offer_letter.advisor_approved = "Approved"
             offer_letter.approval_date = timezone.now()
-        else:
-            offer_letter.approval_date = None  # Reset approval date if rejected
-
-        offer_letter.save()
+            offer_letter.save()
+            message = f"Offer letter approved successfully"
+        elif status_value == "Rejected":
+            offer_letter.delete()
+            message = f"Offer letter rejected and removed from the database"
 
         return Response({
-            "message": f"Offer letter {status_value.lower()} successfully",
+            "message": message,
             "student_name": offer_letter.student.full_name,
-            "student_university_id": university_id,
-            "advisor_approved": offer_letter.advisor_approved,
-            "approval_date": offer_letter.approval_date
+            "student_university_id": university_id
         }, status=status.HTTP_200_OK)
 
 
@@ -248,7 +238,7 @@ class ApproveInternshipReportView(APIView):
 
     def put(self, request):
         university_id = request.data.get("university_id")
-        report_id = request.data.get("report_id")  # Report identifier
+        report_id = request.data.get("report_id")
         status_value = request.data.get("status")
 
         # Validate status
@@ -274,14 +264,18 @@ class ApproveInternshipReportView(APIView):
                 student__assigned_advisor=advisor
             )
 
-        # Convert "Approved"/"Rejected" to Boolean
-        report.advisor_approved = status_value == "Approved"
-
-        report.save()
+        # Handling approve/reject logic
+        if status_value == "Approved":
+            report.advisor_approved = "Approved"
+            report.approval_date = timezone.now()
+            report.save()
+            message = f"Internship report approved successfully"
+        elif status_value == "Rejected":
+            report.delete()
+            message = f"Internship report rejected and removed from the database"
 
         return Response({
-            "message": f"Internship report {status_value.lower()} successfully",
-            "student_name": report.student.full_name,  # Use full_name directly
-            "student_university_id": university_id,
-            "advisor_approved": report.advisor_approved
+            "message": message,
+            "student_name": report.student.full_name,
+            "student_university_id": university_id
         }, status=status.HTTP_200_OK)
