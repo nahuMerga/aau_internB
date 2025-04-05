@@ -81,34 +81,50 @@ class StudentRegistrationView(APIView):
 
 
 class InternshipOfferLetterUploadView(generics.CreateAPIView):
-    """Upload an internship offer letter (Student instance is passed)"""
     serializer_class = InternshipOfferLetterSerializer
-    permission_classes = [AllowAny]  # ✅ No authentication required
+    permission_classes = [AllowAny]
 
     def perform_create(self, serializer):
-        student = serializer.validated_data.get("student")  # Get Student object
+        student = serializer.validated_data.get("student")
+
         if not student:
             raise ValidationError({"error": "Student object is required."})
+
+        if not student.assigned_advisor:
+            raise ValidationError({"error": "Advisor not assigned yet."})
+
+        existing_letter = InternshipOfferLetter.objects.filter(student=student).first()
+        if existing_letter and existing_letter.advisor_approved:
+            raise ValidationError({"error": "An approved offer letter already exists."})
 
         serializer.save(student=student)
 
 
 class InternshipReportUploadView(generics.CreateAPIView):
-    """Submit an internship report every 15 days (Student instance is passed)"""
     serializer_class = InternshipReportSerializer
-    permission_classes = [AllowAny]  # ✅ No authentication required
+    permission_classes = [AllowAny]
 
     def perform_create(self, serializer):
-        student = serializer.validated_data.get("student")  # Get Student object
+        student = serializer.validated_data.get("student")
+        report_number = serializer.validated_data.get("report_number")
+
         if not student:
             raise ValidationError({"error": "Student object is required."})
 
-        # ✅ Check last report submission
+        if not student.assigned_advisor:
+            raise ValidationError({"error": "Advisor not assigned yet."})
+
+        if InternshipReport.objects.filter(student=student, report_number=report_number, advisor_approved=True).exists():
+            raise ValidationError({"error": f"Report {report_number} already approved. You can't upload it again."})
+
+        approved_reports_count = InternshipReport.objects.filter(student=student, advisor_approved=True).count()
+        if approved_reports_count >= 4:
+            raise ValidationError({"error": "You have already submitted 4 approved reports."})
+
         last_report = InternshipReport.objects.filter(student=student).order_by('-submission_date').first()
-        if last_report and (timezone.now().date() - last_report.submission_date).days < 15:
+        if last_report and (timezone.now().date() - last_report.submission_date.date()).days < 15:
             raise ValidationError({"error": "You can only submit a report every 15 days."})
 
         serializer.save(student=student)
-
 
 
