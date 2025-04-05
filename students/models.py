@@ -39,10 +39,15 @@ class InternshipOfferLetter(models.Model):
     approval_date = models.DateTimeField(null=True, blank=True)
 
 class InternshipReport(models.Model):
+    REPORT_CHOICES = [(i, f"{i} Report") for i in range(1, 5)]
+
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     document = models.FileField(upload_to='reports/')
     submission_date = models.DateTimeField(auto_now_add=True)
     advisor_approved = models.BooleanField(default=False)
+    approval_date = models.DateTimeField(null=True, blank=True)
+    report_number = models.IntegerField(choices=REPORT_CHOICES)
+
     grade = models.IntegerField(
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(10)]
@@ -51,3 +56,4 @@ class InternshipReport(models.Model):
     class Meta:
         ordering = ['-submission_date']
         get_latest_by = 'submission_date'
+        unique_together = ['student', 'report_number']  # Ensure no duplicate report numbers per student
