@@ -58,5 +58,5 @@ class InternshipReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = InternshipReport
         fields = '__all__'
-        read_only_fields = ['advisor_approved', 'approval_date']
+        read_only_fields = ['advisor_approved', 'grade', 'approval_date']
 
