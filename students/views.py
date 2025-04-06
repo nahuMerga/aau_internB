@@ -100,43 +100,49 @@ class StudentRegistrationView(APIView):
             student.otp_verified = True  # Mark OTP as verified in the student record
             student.save()
 
+
 class InternshipOfferLetterUploadView(generics.CreateAPIView):
     serializer_class = InternshipOfferLetterSerializer
     permission_classes = [AllowAny]
 
-    def perform_create(self, serializer):
-        # Extract telegram_id and remove it from data
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         telegram_id = serializer.validated_data.pop('telegram_id')
-        
-        # Find student
         student = Student.objects.filter(telegram_id=telegram_id).first()
         if not student:
             raise ValidationError({"error": "Student not found with provided telegram_id"})
 
-        # Your business logic validations
         if not student.assigned_advisor:
             raise ValidationError({"error": "Advisor not assigned yet"})
 
         if InternshipOfferLetter.objects.filter(student=student, advisor_approved=True).exists():
             raise ValidationError({"error": "Approved offer letter already exists"})
 
-        # Save with student - this is the ONLY place we set student
         serializer.save(student=student)
+
+        return Response(
+            {"message": "✅ Offer letter submitted successfully! 📄\nYou will be notified once it's approved ✅"},
+            status=status.HTTP_201_CREATED
+        )
 
 
 class InternshipReportUploadView(generics.CreateAPIView):
     serializer_class = InternshipReportSerializer
     permission_classes = [AllowAny]
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         telegram_id = serializer.validated_data.pop('telegram_id')
         report_number = serializer.validated_data.get('report_number')
-        
+
         student = Student.objects.filter(telegram_id=telegram_id).first()
         if not student:
             raise ValidationError({"error": "Student not found"})
 
-        # Your existing validations
         if not student.assigned_advisor:
             raise ValidationError({"error": "Advisor not assigned yet"})
 
@@ -157,14 +163,14 @@ class InternshipReportUploadView(generics.CreateAPIView):
         last_report = InternshipReport.objects.filter(
             student=student
         ).order_by('-submission_date').first()
-        
+
         if last_report and (timezone.now().date() - last_report.submission_date.date()).days < 15:
             raise ValidationError({"error": "15-day cooldown between reports"})
 
         serializer.save(student=student)
 
-
-
-
-
-
+        remaining = max(0, 4 - (approved_reports + 1))  # Include current one
+        return Response(
+            {"message": f"📘 Report {report_number} submitted successfully!\nKeep going! 💪 You have {remaining} report(s) to go!"},
+            status=status.HTTP_201_CREATED
+        )
