@@ -50,25 +50,6 @@ class AutoAssignAdvisorsView(APIView):
         assign_students_to_advisors()
         return Response({"message": "Automatic advisor assignment triggered"}, status=status.HTTP_200_OK)
 
-def assign_students_to_advisors():
-    """Sort students alphabetically and distribute them evenly among advisors"""
-    students = Student.objects.filter(assigned_advisor__isnull=True).order_by("full_name")
-    advisors = list(Advisor.objects.all().order_by("first_name"))
-
-    if not advisors:
-        print("No advisors available")
-        return
-
-    advisor_index = 0
-    advisor_count = len(advisors)
-
-    for student in students:
-        assigned_advisor = advisors[advisor_index]
-        student.assigned_advisor = assigned_advisor
-        student.save()
-        advisor_index = (advisor_index + 1) % advisor_count  # Distribute evenly
-
-    print("Auto assignment completed")
 
 
 class InternshipPeriodView(APIView):
