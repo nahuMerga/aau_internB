@@ -21,6 +21,7 @@ class Student(models.Model):
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(40)]  # 4 reports × 10 points
     )
+    otp_verified = models.BooleanField(default=False)
     assigned_advisor = models.ForeignKey(
         Advisor,
         on_delete=models.SET_NULL,
