@@ -46,17 +46,24 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = '__all__'
-        read_only_fields = ['assigned_advisor', 'otp_verified']
+        read_only_fields = ['assigned_advisor', 'otp_verified']  # Prevent students from modifying this field
 
 class InternshipOfferLetterSerializer(serializers.ModelSerializer):
+    telegram_id = serializers.CharField(write_only=True)  # Only extra field we need
+    
     class Meta:
         model = InternshipOfferLetter
-        fields = '__all__'
-        read_only_fields = ['advisor_approved', 'approval_date']
+        fields = ['telegram_id', 'company', 'document']  # Only include fields that exist in the model
+        extra_kwargs = {
+            'document': {'required': True}
+        }
 
 class InternshipReportSerializer(serializers.ModelSerializer):
+    telegram_id = serializers.CharField(write_only=True)
+    
     class Meta:
         model = InternshipReport
-        fields = '__all__'
-        read_only_fields = ['advisor_approved', 'grade', 'approval_date']
-
+        fields = ['telegram_id', 'report_number', 'document']
+        extra_kwargs = {
+            'document': {'required': True}
+        }
