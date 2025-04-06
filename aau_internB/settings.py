@@ -170,6 +170,15 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Use SMTP backend for sending real emails
+EMAIL_HOST = 'smtp.gmail.com'  # Gmail's SMTP server
+EMAIL_PORT = 587  # Standard port for TLS (secure email sending)
+EMAIL_USE_TLS = True  # Use TLS for a secure connection
+EMAIL_HOST_USER = 'aau57.sis@gmail.com'  # Your Gmail address
+EMAIL_HOST_PASSWORD = 'ypoa vdvv qcet haea'  # Your Gmail app password (explained below)
+DEFAULT_FROM_EMAIL = 'aau57.sis@gmail.com'  # The "from" email address that will appear in emails
+
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
