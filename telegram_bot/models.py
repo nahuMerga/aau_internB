@@ -8,6 +8,7 @@ class OTPVerification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     attempt_count = models.IntegerField(default=0)
     locked_until = models.DateTimeField(null=True, blank=True)
+    otp_verified = models.BooleanField(default=False) 
 
     def is_expired(self):
         return timezone.now() > self.created_at + timedelta(minutes=10)
