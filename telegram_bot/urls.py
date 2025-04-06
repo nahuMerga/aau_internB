@@ -1,7 +1,6 @@
 from django.urls import path
-from . import views
+from .views import SendOTPView
 
 urlpatterns = [
-    path('some-path/', views.some_view, name='some_view'),
-
+    path('send-otp/', SendOTPView.as_view(), name='send-otp'),
 ]
