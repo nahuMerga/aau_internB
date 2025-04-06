@@ -46,7 +46,7 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = '__all__'
-        read_only_fields = ['assigned_advisor']  # Prevent students from modifying this field
+        read_only_fields = ['assigned_advisor', 'otp_verified']
 
 class InternshipOfferLetterSerializer(serializers.ModelSerializer):
     class Meta:
