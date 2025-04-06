@@ -11,18 +11,23 @@ from rest_framework.exceptions import NotAuthenticated, NotFound
 from rest_framework.permissions import AllowAny
 from .models import Student
 from django.core.exceptions import ValidationError
+from telegram_bot.models import OTPVerification
 
 
 class StudentRegistrationView(APIView):
     permission_classes = [AllowAny]
+    
     def post(self, request):
         university_id = request.data.get("university_id")
         phone_number = request.data.get("phone_number")
         telegram_id = request.data.get("telegram_id")
+        otp_code = request.data.get("otp_code")
 
-        if not self.OTPVerified():
-            return Response({"OTPVerified": False, "error": "OTP verification failed."}, status=status.HTTP_400_BAD_REQUEST)
+        # Check if OTP is verified
+        if not self.OTPVerified(university_id, otp_code):
+            return Response({"OTPVerified": False, "error": "OTP verification failed or locked."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Check if the registration period is active
         internship_period = InternshipPeriod.objects.order_by("-registration_end").first()
         today = timezone.now().date()
         if not internship_period.is_registration_active():
@@ -32,11 +37,12 @@ class StudentRegistrationView(APIView):
         if not internship_period.is_valid_calendar():
             return Response({"error": "The internship calendar dates are invalid."}, status=status.HTTP_400_BAD_REQUEST)
 
-
+        # Find the student by university ID
         third_year_student = ThirdYearStudentList.objects.filter(university_id=university_id).first()
         if not third_year_student:
             return Response({"error": "Student not found in third-year database."}, status=status.HTTP_404_NOT_FOUND)
 
+        # Create or update the student record
         student, _ = Student.objects.update_or_create(
             university_id=third_year_student.university_id,
             defaults={
@@ -55,29 +61,45 @@ class StudentRegistrationView(APIView):
             defaults={}
         )
 
+        # Mark OTP as verified in the student record
+        self.mark_otp_verified(university_id)
+
+        # Return success response with engaging message
         return Response({
-            "message": "Student registered successfully.",
+            "message": f"🎉 Congratulations {student.full_name}! You have successfully registered! 🎉\nNow you can start using the mini app. 🚀\n\nWelcome to the AAU Internship System! 🏆\n\n👉 [Start using the mini app](http://your-mini-app-link.com) 👈",
             "OTPVerified": True,
-            "student": {
-                "university_id": student.university_id,
-                "institutional_email": student.institutional_email,
-                "full_name": student.full_name,
-                "phone_number": student.phone_number,
-                "telegram_id": student.telegram_id,
-                "status": student.status,
-                "start_date": student.start_date or None,
-                "end_date": student.end_date or None,
-                "student_grade": student.grade if hasattr(student, "grade") else 0,
-                "assigned_advisor": student.assigned_advisor.full_name if student.assigned_advisor else "Pending (Not assigned yet)",
-            },
-            "intern_student": {
-                "student": student.full_name,
-            }
         }, status=status.HTTP_201_CREATED)
 
-    def OTPVerified(self):
-        """Dummy OTP verification, always returns True (replace later with real logic)."""
+
+    def OTPVerified(self, university_id, otp_code):
+        try:
+            otp_entry = OTPVerification.objects.get(university_id=university_id)
+        except OTPVerification.DoesNotExist:
+            return False
+
+        if otp_entry.is_locked():
+            return False
+
+        if otp_entry.is_expired():
+            otp_entry.delete()
+            return False
+
+        if otp_entry.otp_code != otp_code:
+            otp_entry.attempt_count += 1
+            if otp_entry.attempt_count >= 4:
+                otp_entry.locked_until = timezone.now() + timedelta(hours=1)
+            otp_entry.save()
+            return False
+
+        otp_entry.delete()  # Valid and used
         return True
+
+    def mark_otp_verified(self, student):
+        """Marks the student's otp_verified field as True."""
+        if student:
+            student.otp_verified = True  # Mark OTP as verified in the student record
+            student.save()
+
 
 
 
@@ -99,6 +121,7 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
             raise ValidationError({"error": "An approved offer letter already exists."})
 
         serializer.save(student=student)
+        
 
 
 class InternshipReportUploadView(generics.CreateAPIView):
@@ -127,5 +150,6 @@ class InternshipReportUploadView(generics.CreateAPIView):
             raise ValidationError({"error": "You can only submit a report every 15 days."})
 
         serializer.save(student=student)
+
 
 
