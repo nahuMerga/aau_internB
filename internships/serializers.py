@@ -4,7 +4,7 @@ from .models import InternStudentList, InternshipPeriod, ThirdYearStudentList
 class ThirdYearStudentListSerializer(serializers.ModelSerializer):
     class Meta:
         model = ThirdYearStudentList
-        fields = ['university_id', 'full_name', 'institutional_email']
+        fields = ['university_id', 'full_name', 'institutional_email', 'assigned_advisor'] 
 
 class InternStudentListSerializer(serializers.ModelSerializer):
     student = ThirdYearStudentListSerializer()  # Nested serializer for the student
