@@ -11,6 +11,7 @@ class Student(models.Model):
     
     university_id = models.CharField(max_length=20, unique=True)
     institutional_email = models.EmailField(unique=True)
+    otp_verified = models.BooleanField(default=False)
     full_name = models.CharField(max_length=100)
     phone_number = models.CharField(max_length=15)
     telegram_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
@@ -21,7 +22,6 @@ class Student(models.Model):
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(40)]  # 4 reports × 10 points
     )
-    otp_verified = models.BooleanField(default=False)
     assigned_advisor = models.ForeignKey(
         Advisor,
         on_delete=models.SET_NULL,
@@ -32,8 +32,26 @@ class Student(models.Model):
     def __str__(self):
         return f"{self.full_name} ({self.university_id})"
 
+    def save(self, *args, **kwargs):
+        # Check if an advisor is already assigned
+        if not self.assigned_advisor:
+            # Try to get the advisor from ThirdYearStudentList based on the university_id
+            try:
+                third_year_student = ThirdYearStudentList.objects.get(university_id=self.university_id)
+                # Check if the advisor exists for that third-year student
+                if third_year_student.assigned_advisor:
+                    self.assigned_advisor = third_year_student.assigned_advisor
+                else:
+                    print(f"⚠️ No advisor assigned for {third_year_student.full_name}")
+            except ThirdYearStudentList.DoesNotExist:
+                print(f"⚠️ No third-year student found with university_id {self.university_id}")
+        
+        # Call the parent save method to actually save the student
+        super(Student, self).save(*args, **kwargs)
+
 class InternshipOfferLetter(models.Model):
     student = models.OneToOneField(Student, on_delete=models.CASCADE)
+    company = models.CharField(max_length=100)
     document = models.FileField(upload_to='offer_letters/')
     advisor_approved = models.CharField(
         max_length=10, choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')],
@@ -48,10 +66,6 @@ class InternshipReport(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     document = models.FileField(upload_to='reports/')
     submission_date = models.DateTimeField(auto_now_add=True)
-    advisor_approved = models.CharField(
-        max_length=10, choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')],
-        default='Pending'
-    )
     approval_date = models.DateTimeField(null=True, blank=True)
     report_number = models.IntegerField(choices=REPORT_CHOICES)
 
