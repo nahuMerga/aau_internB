@@ -100,28 +100,28 @@ class StudentRegistrationView(APIView):
             student.otp_verified = True  # Mark OTP as verified in the student record
             student.save()
 
-
-
-
 class InternshipOfferLetterUploadView(generics.CreateAPIView):
     serializer_class = InternshipOfferLetterSerializer
     permission_classes = [AllowAny]
 
     def perform_create(self, serializer):
-        student = serializer.validated_data.get("student")
-
-        if not student:
-            raise ValidationError({"error": "Student object is required."})
-
-        if not student.assigned_advisor:
-            raise ValidationError({"error": "Advisor not assigned yet."})
-
-        existing_letter = InternshipOfferLetter.objects.filter(student=student).first()
-        if existing_letter and existing_letter.advisor_approved:
-            raise ValidationError({"error": "An approved offer letter already exists."})
-
-        serializer.save(student=student)
+        # Extract telegram_id and remove it from data
+        telegram_id = serializer.validated_data.pop('telegram_id')
         
+        # Find student
+        student = Student.objects.filter(telegram_id=telegram_id).first()
+        if not student:
+            raise ValidationError({"error": "Student not found with provided telegram_id"})
+
+        # Your business logic validations
+        if not student.assigned_advisor:
+            raise ValidationError({"error": "Advisor not assigned yet"})
+
+        if InternshipOfferLetter.objects.filter(student=student, advisor_approved=True).exists():
+            raise ValidationError({"error": "Approved offer letter already exists"})
+
+        # Save with student - this is the ONLY place we set student
+        serializer.save(student=student)
 
 
 class InternshipReportUploadView(generics.CreateAPIView):
@@ -129,27 +129,42 @@ class InternshipReportUploadView(generics.CreateAPIView):
     permission_classes = [AllowAny]
 
     def perform_create(self, serializer):
-        student = serializer.validated_data.get("student")
-        report_number = serializer.validated_data.get("report_number")
-
+        telegram_id = serializer.validated_data.pop('telegram_id')
+        report_number = serializer.validated_data.get('report_number')
+        
+        student = Student.objects.filter(telegram_id=telegram_id).first()
         if not student:
-            raise ValidationError({"error": "Student object is required."})
+            raise ValidationError({"error": "Student not found"})
 
+        # Your existing validations
         if not student.assigned_advisor:
-            raise ValidationError({"error": "Advisor not assigned yet."})
+            raise ValidationError({"error": "Advisor not assigned yet"})
 
-        if InternshipReport.objects.filter(student=student, report_number=report_number, advisor_approved=True).exists():
-            raise ValidationError({"error": f"Report {report_number} already approved. You can't upload it again."})
+        if InternshipReport.objects.filter(
+            student=student, 
+            report_number=report_number, 
+            advisor_approved=True
+        ).exists():
+            raise ValidationError({"error": f"Report {report_number} already approved"})
 
-        approved_reports_count = InternshipReport.objects.filter(student=student, advisor_approved=True).count()
-        if approved_reports_count >= 4:
-            raise ValidationError({"error": "You have already submitted 4 approved reports."})
+        approved_reports = InternshipReport.objects.filter(
+            student=student, 
+            advisor_approved=True
+        ).count()
+        if approved_reports >= 4:
+            raise ValidationError({"error": "Maximum 4 approved reports allowed"})
 
-        last_report = InternshipReport.objects.filter(student=student).order_by('-submission_date').first()
+        last_report = InternshipReport.objects.filter(
+            student=student
+        ).order_by('-submission_date').first()
+        
         if last_report and (timezone.now().date() - last_report.submission_date.date()).days < 15:
-            raise ValidationError({"error": "You can only submit a report every 15 days."})
+            raise ValidationError({"error": "15-day cooldown between reports"})
 
         serializer.save(student=student)
+
+
+
 
 
 
