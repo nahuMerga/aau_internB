@@ -59,6 +59,10 @@ class InternshipOfferLetter(models.Model):
     )
     submission_date = models.DateTimeField(auto_now_add=True)
     approval_date = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"Offer Letter for {self.student.full_name} at {self.company} - Status: {self.advisor_approved}"
+
 
 class InternshipReport(models.Model):
     REPORT_CHOICES = [(i, f"{i} Report") for i in range(1, 5)]
@@ -78,3 +82,7 @@ class InternshipReport(models.Model):
         ordering = ['-submission_date']
         get_latest_by = 'submission_date'
         unique_together = ['student', 'report_number']  # Ensure no duplicate report numbers per student
+        
+    def __str__(self):
+        return f"Report {self.report_number} - {self.student.full_name} | Grade: {self.grade}"
+

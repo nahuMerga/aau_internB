@@ -4,13 +4,14 @@ from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-
+from rest_framework.permissions import AllowAny
 from internships.models import ThirdYearStudentList  # Adjust if needed
 from .models import OTPVerification
 
 
 
 class SendOTPView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         university_id = request.data.get("university_id")
         if not university_id:

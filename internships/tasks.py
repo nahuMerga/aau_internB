@@ -8,23 +8,29 @@ import datetime
 scheduler = BackgroundScheduler()
 scheduler.add_jobstore(DjangoJobStore(), "default")
 
+from collections import defaultdict
+from django.db.models import Count
+
 def assign_advisors_to_third_year_students():
-    """Assigns advisors to unassigned third-year students in round-robin fashion"""
-    # Changed filter to check for NULL assigned_advisor instead of advisor_assigned
+    """Assigns advisors to unassigned third-year students as fairly as possible"""
     students = ThirdYearStudentList.objects.filter(assigned_advisor__isnull=True).order_by("full_name")
-    advisors = list(Advisor.objects.all().order_by("first_name"))
+    advisors = list(Advisor.objects.annotate(current_load=Count('thirdyearstudentlist')).order_by('current_load', 'first_name'))
 
     if not advisors:
         print("❌ No advisors available")
         return
 
-    advisor_index = 0
     for student in students:
-        student.assigned_advisor = advisors[advisor_index]
-        student.save()  # Removed advisor_assigned field assignment
-        advisor_index = (advisor_index + 1) % len(advisors)
+        # Always assign the advisor with the fewest students
+        advisors[0].thirdyearstudentlist_set.add(student)
+        student.assigned_advisor = advisors[0]
+        student.save()
+
+        # Update the current load by re-sorting the advisors list
+        advisors = sorted(advisors, key=lambda a: a.thirdyearstudentlist_set.count())
 
     print(f"✅ Assigned advisors to {len(students)} students")
+
 
 def check_and_assign():
     """Checks if registration period has ended and assigns advisors if needed"""

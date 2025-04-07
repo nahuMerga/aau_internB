@@ -7,6 +7,11 @@ class ThirdYearStudentList(models.Model):
     full_name = models.CharField(max_length=100)
     institutional_email = models.EmailField(unique=True)
     assigned_advisor = models.ForeignKey(Advisor, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    def __str__(self):
+        advisor_name = self.assigned_advisor.first_name if self.assigned_advisor else "No Advisor"
+        return f"{self.full_name} ({self.university_id}) - Advisor: {advisor_name}"
+
 
 
 class InternStudentList(models.Model):

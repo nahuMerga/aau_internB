@@ -27,11 +27,6 @@ class StudentRegistrationView(APIView):
         if not self.OTPVerified(university_id, otp_code):
             return Response({"OTPVerified": False, "error": "OTP verification failed or locked."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if the registration period is active
-        internship_period = InternshipPeriod.objects.order_by("-registration_end").first()
-        today = timezone.now().date()
-        if not internship_period.is_registration_active():
-            return Response({"error": "The registration period has ended."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if internship calendar dates are valid
         if not internship_period.is_valid_calendar():
