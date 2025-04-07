@@ -14,6 +14,8 @@ from .serializers import AdvisorRegistrationSerializer, AdvisorSerializer, UserS
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.http import Http404
 from django.utils import timezone
+from datetime import timedelta
+import requests  # for making HTTP requests
 
 
 class UpdateAdvisorProfileView(APIView):
@@ -200,7 +202,7 @@ class ApproveOfferLetterView(APIView):
 
         user = request.user
 
-        # Superusers can approve/reject any offer letter
+        # Superuser can manage any offer letter
         if user.is_superuser:
             offer_letter = get_object_or_404(InternshipOfferLetter, student__university_id=university_id)
         else:
@@ -208,26 +210,54 @@ class ApproveOfferLetterView(APIView):
             if not advisor:
                 return Response({"error": "User is not an advisor"}, status=status.HTTP_403_FORBIDDEN)
 
-            # Only fetch offer letters of the advisor's assigned students
             offer_letter = get_object_or_404(
                 InternshipOfferLetter,
                 student__university_id=university_id,
                 student__assigned_advisor=advisor
             )
 
+        student = offer_letter.student
+
         # Handling approve/reject logic
         if status_value == "Approved":
+            now = timezone.now().date()
+
+            # ✅ Set approval info
             offer_letter.advisor_approved = "Approved"
             offer_letter.approval_date = timezone.now()
             offer_letter.save()
-            message = f"Offer letter approved successfully"
+
+            # ✅ Set student internship duration
+            student.start_date = now
+            student.end_date = now + timedelta(days=60)  # ~2 months
+            student.status = "Ongoing"
+            student.save()
+
+            # ✅ Send notification via POST request
+            if student.telegram_id:
+                payload = {
+                    "telegram_id": student.telegram_id,
+                    "status": "Approved"
+                }
+                try:
+                    response = requests.post(
+                        "https://0e83-196-189-127-75.ngrok-free.app/update-status",
+                        json=payload
+                    )
+                    response.raise_for_status()  # Optional: raise error for bad status
+                except requests.RequestException as e:
+                    # Log this properly in production
+                    print("Notification failed:", e)
+
+            message = "Offer letter approved successfully"
+
         elif status_value == "Rejected":
             offer_letter.delete()
-            message = f"Offer letter rejected and removed from the database"
+            message = "Offer letter rejected and removed from the database"
 
         return Response({
             "message": message,
-            "student_name": offer_letter.student.full_name,
-            "student_university_id": university_id
+            "student_name": student.full_name,
+            "student_university_id": student.university_id
         }, status=status.HTTP_200_OK)
 
