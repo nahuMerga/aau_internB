@@ -33,12 +33,12 @@ class Student(models.Model):
         return f"{self.full_name} ({self.university_id})"
 
     def save(self, *args, **kwargs):
-        # Check if an advisor is already assigned
         if not self.assigned_advisor:
-            # Try to get the advisor from ThirdYearStudentList based on the university_id
             try:
+                # ⬇️ Lazy import to break circular dependency
+                from internships.models import ThirdYearStudentList
+                
                 third_year_student = ThirdYearStudentList.objects.get(university_id=self.university_id)
-                # Check if the advisor exists for that third-year student
                 if third_year_student.assigned_advisor:
                     self.assigned_advisor = third_year_student.assigned_advisor
                 else:
@@ -46,7 +46,6 @@ class Student(models.Model):
             except ThirdYearStudentList.DoesNotExist:
                 print(f"⚠️ No third-year student found with university_id {self.university_id}")
         
-        # Call the parent save method to actually save the student
         super(Student, self).save(*args, **kwargs)
 
 class InternshipOfferLetter(models.Model):
@@ -85,4 +84,3 @@ class InternshipReport(models.Model):
         
     def __str__(self):
         return f"Report {self.report_number} - {self.student.full_name} | Grade: {self.grade}"
-
