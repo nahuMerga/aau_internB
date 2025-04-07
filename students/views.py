@@ -27,10 +27,10 @@ class StudentRegistrationView(APIView):
         if not self.OTPVerified(university_id, otp_code):
             return Response({"OTPVerified": False, "error": "OTP verification failed or locked."}, status=status.HTTP_400_BAD_REQUEST)
 
-
+        # Check if the registration period is active
         internship_period = InternshipPeriod.objects.order_by("-registration_end").first()
         today = timezone.now().date()
-        
+
         # Check if internship calendar dates are valid
         if not internship_period.is_valid_calendar():
             return Response({"error": "The internship calendar dates are invalid."}, status=status.HTTP_400_BAD_REQUEST)
@@ -92,11 +92,11 @@ class StudentRegistrationView(APIView):
         otp_entry.delete()  # Valid and used
         return True
 
-    def mark_otp_verified(self, student):
-        """Marks the student's otp_verified field as True."""
-        if student:
-            student.otp_verified = True  # Mark OTP as verified in the student record
-            student.save()
+    def mark_otp_verified(self, university_id):
+        # First get the student object
+        student = Student.objects.get(university_id=university_id)
+        student.otp_verified = True  # Now this will work
+        student.save()
 
 
 class InternshipOfferLetterUploadView(generics.CreateAPIView):
