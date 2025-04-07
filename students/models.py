@@ -51,12 +51,12 @@ class Student(models.Model):
 class InternshipOfferLetter(models.Model):
     student = models.OneToOneField(Student, on_delete=models.CASCADE)
     company = models.CharField(max_length=100)
+    submission_date = models.DateTimeField(auto_now_add=True)
     document = models.FileField(upload_to='offer_letters/')
     advisor_approved = models.CharField(
         max_length=10, choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')],
         default='Pending'
     )
-    submission_date = models.DateTimeField(auto_now_add=True)
     approval_date = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
@@ -65,11 +65,9 @@ class InternshipOfferLetter(models.Model):
 
 class InternshipReport(models.Model):
     REPORT_CHOICES = [(i, f"{i} Report") for i in range(1, 5)]
-
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     document = models.FileField(upload_to='reports/')
     submission_date = models.DateTimeField(auto_now_add=True)
-    approval_date = models.DateTimeField(null=True, blank=True)
     report_number = models.IntegerField(choices=REPORT_CHOICES)
 
     grade = models.IntegerField(
@@ -84,3 +82,4 @@ class InternshipReport(models.Model):
         
     def __str__(self):
         return f"Report {self.report_number} - {self.student.full_name} | Grade: {self.grade}"
+
