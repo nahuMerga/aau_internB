@@ -28,6 +28,9 @@ class StudentRegistrationView(APIView):
             return Response({"OTPVerified": False, "error": "OTP verification failed or locked."}, status=status.HTTP_400_BAD_REQUEST)
 
 
+        internship_period = InternshipPeriod.objects.order_by("-registration_end").first()
+        today = timezone.now().date()
+        
         # Check if internship calendar dates are valid
         if not internship_period.is_valid_calendar():
             return Response({"error": "The internship calendar dates are invalid."}, status=status.HTTP_400_BAD_REQUEST)
