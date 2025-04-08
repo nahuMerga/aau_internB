@@ -217,6 +217,7 @@ class OfferLetterStatusView(APIView):
 
 
 class ReportStatusView(APIView):
+    permission_classes = [AllowAny]
     def get(self, request):
         telegram_id = request.GET.get("telegram_id")
         if not telegram_id:
