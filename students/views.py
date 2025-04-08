@@ -234,7 +234,7 @@ class ReportStatusView(APIView):
             reports.append({
                 "report_number": i,
                 "uploaded": bool(report),
-                "document": report.document.url if report and report.document else None
+                "document": request.build_absolute_uri(report.document.url) if report and report.document else None
             })
 
         return Response({
