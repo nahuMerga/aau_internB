@@ -177,3 +177,63 @@ class InternshipReportUploadView(generics.CreateAPIView):
         return Response({
             "message": f"📘 Report {report_number} submitted successfully!\nKeep going! 💪 You have {remaining} report(s) to go!"
         }, status=status.HTTP_201_CREATED)
+        
+
+class OfferLetterStatusView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        telegram_id = request.query_params.get('telegram_id')
+        if not telegram_id:
+            return Response({"error": "telegram_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        student = Student.objects.filter(telegram_id=telegram_id).first()
+        if not student:
+            return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        offer = InternshipOfferLetter.objects.filter(student=student).first()
+        advisor_name = f"{student.assigned_advisor.first_name} {student.assigned_advisor.last_name}" if student.assigned_advisor else None
+
+        # Prepare the response
+        response_data = {
+            "student_name": student.full_name,
+            "advisor_name": advisor_name,
+            "offer_letter": {
+                "uploaded": bool(offer),
+                "approved": offer.advisor_approved if offer else False,
+                "company": offer.company if offer else None,
+                "document": request.build_absolute_uri(offer.document.url) if offer and offer.document else None
+            }
+        }
+
+        return Response(response_data)
+
+
+
+class ReportStatusView(APIView):
+    def get(self, request):
+        telegram_id = request.GET.get("telegram_id")
+        if not telegram_id:
+            return Response({"error": "telegram_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        student = Student.objects.filter(telegram_id=telegram_id).first()
+        if not student:
+            return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        reports = []
+        existing_reports = {r.report_number: r for r in InternshipReport.objects.filter(student=student)}
+
+        for i in range(1, 5):
+            report = existing_reports.get(i)
+            reports.append({
+                "report_number": i,
+                "uploaded": bool(report),
+                "document": report.document.url if report and report.document else None
+            })
+
+        return Response({
+            "student_name": student.full_name,
+            "advisor_name": f"{student.assigned_advisor.first_name} {student.assigned_advisor.last_name}" if student.assigned_advisor else None,
+            "reports": reports
+        })
+
