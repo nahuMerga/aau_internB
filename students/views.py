@@ -152,6 +152,12 @@ class InternshipReportUploadView(generics.CreateAPIView):
         if not student.assigned_advisor:
             return Response({"error": "Advisor not assigned yet"}, status=status.HTTP_400_BAD_REQUEST)
 
+        offer = InternshipOfferLetter.objects.filter(student=student).first()
+        if not offer or not offer.advisor_approved:
+            return Response({
+            "error": "Offer letter must exist and be approved before uploading a report."
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         if InternshipReport.objects.filter(student=student, report_number=report_number).exists():
             return Response({"error": f"Report {report_number} already submitted"}, status=status.HTTP_400_BAD_REQUEST)
 
