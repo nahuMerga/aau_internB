@@ -168,13 +168,13 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
             return Response({"error": "Approved offer letter already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            path = f"offer_letters/{telegram_id}/{uploaded_file.name}"
+            filename = os.path.basename(uploaded_file.name)
+            path = f"offer_letters/{telegram_id}/{filename}"
             file_url = upload_to_supabase(uploaded_file, path)
 
             offer_letter = InternshipOfferLetter.objects.create(
                 student=student,
                 company=company,
-                document=None,
                 document_url=file_url
             )
 
@@ -222,7 +222,8 @@ class InternshipReportUploadView(generics.CreateAPIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            path = f"reports/{telegram_id}/{uploaded_file.name}"
+            filename = os.path.basename(uploaded_file.name)
+            path = f"offer_letters/{telegram_id}/{filename}"
             file_url = upload_to_supabase(uploaded_file, path)
 
             report = InternshipReport.objects.create(
