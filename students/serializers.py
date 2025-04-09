@@ -50,18 +50,11 @@ class StudentSerializer(serializers.ModelSerializer):
 
 class InternshipOfferLetterSerializer(serializers.ModelSerializer):
     telegram_id = serializers.CharField(write_only=True)
-    document = serializers.FileField(write_only=True, use_url=False)
-
+    # REMOVE document field completely - we'll handle it in the view
+    
     class Meta:
         model = InternshipOfferLetter
-        fields = ['telegram_id', 'company', 'document']
-        extra_kwargs = {
-            'document': {'required': True}
-        }
-
-    def create(self, validated_data):
-        validated_data.pop('document', None)  # ✅ Remove document so it's not passed to model
-        return super().create(validated_data)
+        fields = ['telegram_id', 'company']  # No document field here
 
 class InternshipReportSerializer(serializers.ModelSerializer):
     document = serializers.FileField(write_only=True, use_url=False)
