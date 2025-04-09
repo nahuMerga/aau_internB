@@ -167,14 +167,10 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# ⚠️ Disable Django's default file writing
-FILE_UPLOAD_HANDLERS = [
-    'django.core.files.uploadhandler.MemoryFileUploadHandler',  # Only this one!
-]
-
-# ⚠️ Ensure these are NOT set (or set to None)
-MEDIA_ROOT = None
-DEFAULT_FILE_STORAGE = None
+FILE_UPLOAD_HANDLERS = []  # Empty list disables all file processing
+FILE_UPLOAD_MAX_MEMORY_SIZE = 0  # Prevent any file caching
+MEDIA_ROOT = None  # Ensure no media directory is referenced
+DEFAULT_FILE_STORAGE = None  # Disable default storage
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Use SMTP backend for sending real emails
 EMAIL_HOST = 'smtp.gmail.com'  # Gmail's SMTP server
