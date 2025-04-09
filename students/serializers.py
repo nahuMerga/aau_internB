@@ -54,7 +54,7 @@ class InternshipOfferLetterSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InternshipOfferLetter
-        fields = ['telegram_id', 'company', 'document']
+        fields = ['telegram_id', 'company', 'document_url']
         extra_kwargs = {'document': {'required': True}}
 
     def create(self, validated_data):
