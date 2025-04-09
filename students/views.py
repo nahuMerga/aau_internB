@@ -172,7 +172,7 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
 
         try:
             filename = os.path.basename(uploaded_file.name)
-            path = f"offer_letters/{telegram_id}/{filename}"
+            path = f"OFFER_LETTERS/{telegram_id}/{filename}"
             file_url = upload_to_supabase(uploaded_file, path)
 
             offer_letter = InternshipOfferLetter.objects.create(
