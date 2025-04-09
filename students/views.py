@@ -122,7 +122,7 @@ class StudentRegistrationView(APIView):
 
 def upload_to_supabase(file, path_in_bucket):
     SUPABASE_URL = "https://cavdgitwbubdtqdctvlz.supabase.co"
-    SUPABASE_API_KEY = "your-supabase-api-key"  # Make sure to secure your API key
+    SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdmRnaXR3YnViZHRxZGN0dmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxOTUyMTQsImV4cCI6MjA1OTc3MTIxNH0.Xs8TmxZbub6C4WK8qwCiZ0pPfbXbPLDIyandKuyUtgY"  # Make sure to secure your API key
     SUPABASE_BUCKET = "student-document"
 
     upload_url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{path_in_bucket}"
