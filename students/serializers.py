@@ -50,25 +50,40 @@ class StudentSerializer(serializers.ModelSerializer):
 
 class InternshipOfferLetterSerializer(serializers.ModelSerializer):
     telegram_id = serializers.CharField(write_only=True)
-    document = serializers.FileField(write_only=True)  # Keep this
+    document = serializers.FileField(write_only=True)  # Keep this for file upload
     
+    # Add document_url as a read-only field if it’s supposed to provide the URL
+    document_url = serializers.SerializerMethodField()
+
     class Meta:
         model = InternshipOfferLetter
-        fields = ['telegram_id', 'company', 'document_url']
+        fields = ['telegram_id', 'company', 'document', 'document_url']
         extra_kwargs = {'document': {'required': True}}
 
+    # Method to get the URL of the uploaded document
+    def get_document_url(self, obj):
+        return obj.document.url if obj.document else None
+
     def create(self, validated_data):
-        validated_data.pop('document', None)
+        # We don't need to pop the document field if we're not manually handling file saving
         return super().create(validated_data)
 
-
 class InternshipReportSerializer(serializers.ModelSerializer):
-    document = serializers.FileField(write_only=True, use_url=False)
+    document = serializers.FileField(write_only=True, use_url=False)  # Don't include the URL in the response
     telegram_id = serializers.CharField(write_only=True)
     
+    # Add document_url as a read-only field if it’s supposed to provide the URL
+    document_url = serializers.SerializerMethodField()
+
     class Meta:
         model = InternshipReport
-        fields = ['telegram_id', 'report_number', 'document_url']
-        extra_kwargs = {
-            'document': {'required': True}
-        }
+        fields = ['telegram_id', 'report_number', 'document', 'document_url']
+        extra_kwargs = {'document': {'required': True}}
+
+    # Method to get the URL of the uploaded document
+    def get_document_url(self, obj):
+        return obj.document.url if obj.document else None
+
+    def create(self, validated_data):
+        return super().create(validated_data)
+
