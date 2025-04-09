@@ -167,9 +167,14 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Media Files (For Uploaded Documents & Reports)
-# MEDIA_URL = "/media/"
-# MEDIA_ROOT = BASE_DIR / "media"
+# ⚠️ Disable Django's default file writing
+FILE_UPLOAD_HANDLERS = [
+    'django.core.files.uploadhandler.MemoryFileUploadHandler',  # Only this one!
+]
+
+# ⚠️ Ensure these are NOT set (or set to None)
+MEDIA_ROOT = None
+DEFAULT_FILE_STORAGE = None
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Use SMTP backend for sending real emails
 EMAIL_HOST = 'smtp.gmail.com'  # Gmail's SMTP server
