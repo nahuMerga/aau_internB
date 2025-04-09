@@ -155,7 +155,10 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
 
         telegram_id = serializer.validated_data.get('telegram_id')
         company = serializer.validated_data.get('company')
-        uploaded_file = serializer.validated_data.get('document')
+
+        uploaded_file = request.FILES.get('document')
+        if not uploaded_file:
+            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         student = Student.objects.filter(telegram_id=telegram_id).first()
         if not student:
