@@ -120,26 +120,26 @@ class StudentRegistrationView(APIView):
 #         raise Exception(f"Upload failed: {response.status_code} - {response.text}")
 
 
-def upload_to_supabase(file, path_in_bucket):
-    SUPABASE_URL = "https://cavdgitwbubdtqdctvlz.supabase.co"
-    SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdmRnaXR3YnViZHRxZGN0dmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxOTUyMTQsImV4cCI6MjA1OTc3MTIxNH0.Xs8TmxZbub6C4WK8qwCiZ0pPfbXbPLDIyandKuyUtgY"
-    SUPABASE_BUCKET = "student-document"
+# def upload_to_supabase(file, path_in_bucket):
+#     SUPABASE_URL = "https://cavdgitwbubdtqdctvlz.supabase.co"
+#     SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdmRnaXR3YnViZHRxZGN0dmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxOTUyMTQsImV4cCI6MjA1OTc3MTIxNH0.Xs8TmxZbub6C4WK8qwCiZ0pPfbXbPLDIyandKuyUtgY"
+#     SUPABASE_BUCKET = "student-document"
 
-    upload_url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{path_in_bucket}"
-    headers = {
-        "apikey": SUPABASE_API_KEY,
-        "Authorization": f"Bearer {SUPABASE_API_KEY}",
-        "Content-Type": "application/octet-stream",
-        "x-upsert": "true"
-    }
+#     upload_url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{path_in_bucket}"
+#     headers = {
+#         "apikey": SUPABASE_API_KEY,
+#         "Authorization": f"Bearer {SUPABASE_API_KEY}",
+#         "Content-Type": "application/octet-stream",
+#         "x-upsert": "true"
+#     }
 
-    # Upload the file
-    response = requests.post(upload_url, headers=headers, data=file.read())
-    if response.status_code not in [200, 201]:
-        raise Exception(f"Upload failed: {response.status_code} - {response.text}")
+#     # Upload the file
+#     response = requests.post(upload_url, headers=headers, data=file.read())
+#     if response.status_code not in [200, 201]:
+#         raise Exception(f"Upload failed: {response.status_code} - {response.text}")
 
-    # Return the **public** URL
-    return f"https://{SUPABASE_URL.split('//')[1]}/storage/v1/object/public/{SUPABASE_BUCKET}/{path_in_bucket}"
+#     # Return the **public** URL
+#     return f"https://{SUPABASE_URL.split('//')[1]}/storage/v1/object/public/{SUPABASE_BUCKET}/{path_in_bucket}"
 
 
 
@@ -148,17 +148,18 @@ def upload_to_supabase(file, path_in_bucket):
 class InternshipOfferLetterUploadView(generics.CreateAPIView):
     serializer_class = InternshipOfferLetterSerializer
     permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser]  # Keep this
 
     def create(self, request, *args, **kwargs):
+        # Keep all your existing validation logic
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         telegram_id = serializer.validated_data.get('telegram_id')
         company = serializer.validated_data.get('company')
-
-        uploaded_file = request.FILES.get('document')
-        if not uploaded_file:
-            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get file directly from memory
+        uploaded_file = request.FILES['document']
+        file_content = uploaded_file.read()  # Force into memory
 
         student = Student.objects.filter(telegram_id=telegram_id).first()
         if not student:
@@ -171,21 +172,30 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
             return Response({"error": "Approved offer letter already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            filename = os.path.basename(uploaded_file.name)
-            path = f"OFFER_LETTERS/{telegram_id}/{filename}"
-            file_url = upload_to_supabase(uploaded_file, path)
-
+            # Modified upload - no disk access
+            supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+            filename = f"offer_{student.university_id}_{int(time.time())}.pdf"
+            path = f"offer_letters/{filename}"
+            
+            res = supabase.storage.from_("student-document").upload(
+                path=path,
+                file=file_content,
+                file_options={"content-type": uploaded_file.content_type}
+            )
+            
+            # Keep all your existing model creation
             offer_letter = InternshipOfferLetter.objects.create(
                 student=student,
                 company=company,
-                document_url=file_url
+                document_url=f"{SUPABASE_URL}/storage/v1/object/public/student-document/{path}"
             )
-
+            
+            # Keep your existing success response
             return Response({
                 "message": "✅ Offer letter submitted successfully!",
                 "details": f"Company: {company}",
                 "status": "Pending advisor approval",
-                "document_url": file_url
+                "document_url": offer_letter.document_url
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
