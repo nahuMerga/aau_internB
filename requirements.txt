@@ -10,3 +10,4 @@ whitenoise
 gunicorn==20.1.0
 django_apscheduler
 requests
+python-dotenv
