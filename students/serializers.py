@@ -49,14 +49,19 @@ class StudentSerializer(serializers.ModelSerializer):
         read_only_fields = ['assigned_advisor', 'otp_verified']  # Prevent students from modifying this field
 
 class InternshipOfferLetterSerializer(serializers.ModelSerializer):
-    telegram_id = serializers.CharField(write_only=True)  # Only extra field we need
-    
+    telegram_id = serializers.CharField(write_only=True)
+    document = serializers.FileField(write_only=True)  # Don’t let DRF touch model
+
     class Meta:
         model = InternshipOfferLetter
-        fields = ['telegram_id', 'company', 'document']  # Only include fields that exist in the model
+        fields = ['telegram_id', 'company', 'document']
         extra_kwargs = {
             'document': {'required': True}
         }
+
+    def create(self, validated_data):
+        validated_data.pop('document', None)  # ✅ Remove document so it's not passed to model
+        return super().create(validated_data)
 
 class InternshipReportSerializer(serializers.ModelSerializer):
     telegram_id = serializers.CharField(write_only=True)
