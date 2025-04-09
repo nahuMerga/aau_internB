@@ -50,7 +50,7 @@ class StudentSerializer(serializers.ModelSerializer):
 
 class InternshipOfferLetterSerializer(serializers.ModelSerializer):
     telegram_id = serializers.CharField(write_only=True)
-    document = serializers.FileField(write_only=True)  # Don’t let DRF touch model
+    document = serializers.FileField(write_only=True, use_url=False)
 
     class Meta:
         model = InternshipOfferLetter
@@ -64,6 +64,7 @@ class InternshipOfferLetterSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 class InternshipReportSerializer(serializers.ModelSerializer):
+    document = serializers.FileField(write_only=True, use_url=False)
     telegram_id = serializers.CharField(write_only=True)
     
     class Meta:
