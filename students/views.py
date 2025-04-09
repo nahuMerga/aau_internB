@@ -174,7 +174,7 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
             offer_letter = InternshipOfferLetter.objects.create(
                 student=student,
                 company=company,
-                document=uploaded_file,
+                document=None,
                 document_url=file_url
             )
 
@@ -228,7 +228,7 @@ class InternshipReportUploadView(generics.CreateAPIView):
             report = InternshipReport.objects.create(
                 student=student,
                 report_number=report_number,
-                document=uploaded_file,
+                document=None,
                 document_url=file_url
             )
 
