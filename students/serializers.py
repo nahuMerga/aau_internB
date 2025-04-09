@@ -68,7 +68,7 @@ class InternshipReportSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InternshipReport
-        fields = ['telegram_id', 'report_number', 'document']
+        fields = ['telegram_id', 'report_number', 'document_url']
         extra_kwargs = {
             'document': {'required': True}
         }
