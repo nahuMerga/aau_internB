@@ -80,12 +80,6 @@ class InternshipReportSerializer(serializers.ModelSerializer):
         fields = ['telegram_id', 'report_number', 'document', 'document_url']
         extra_kwargs = {'document': {'required': True}}
 
-    # Method to get the URL of the uploaded document
-    def get_document_url(self, obj):
-        # Ensure 'document' is a valid field before trying to access its URL
-        if hasattr(obj, 'document') and obj.document:
-            return obj.document.url
-        return None
 
     def create(self, validated_data):
         return super().create(validated_data)
