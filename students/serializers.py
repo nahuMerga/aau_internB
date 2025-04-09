@@ -82,7 +82,10 @@ class InternshipReportSerializer(serializers.ModelSerializer):
 
     # Method to get the URL of the uploaded document
     def get_document_url(self, obj):
-        return obj.document.url if obj.document else None
+        # Ensure 'document' is a valid field before trying to access its URL
+        if hasattr(obj, 'document') and obj.document:
+            return obj.document.url
+        return None
 
     def create(self, validated_data):
         return super().create(validated_data)
