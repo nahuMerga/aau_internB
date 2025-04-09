@@ -29,5 +29,3 @@ urlpatterns = [
     path('aau_api/telegram_bot/', include('telegram_bot.urls')),
 ]
 
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
