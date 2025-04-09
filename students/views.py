@@ -122,7 +122,7 @@ class StudentRegistrationView(APIView):
 
 def upload_to_supabase(file, path_in_bucket):
     SUPABASE_URL = "https://cavdgitwbubdtqdctvlz.supabase.co"
-    SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdmRnaXR3YnViZHRxZGN0dmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxOTUyMTQsImV4cCI6MjA1OTc3MTIxNH0.Xs8TmxZbub6C4WK8qwCiZ0pPfbXbPLDIyandKuyUtgY"
+    SUPABASE_API_KEY = "your-supabase-api-key"  # Make sure to secure your API key
     SUPABASE_BUCKET = "student-document"
 
     upload_url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{path_in_bucket}"
@@ -133,15 +133,23 @@ def upload_to_supabase(file, path_in_bucket):
         "x-upsert": "true"
     }
 
-    # Upload the file
-    response = requests.post(upload_url, headers=headers, data=file.read())
-    if response.status_code not in [200, 201]:
-        raise Exception(f"Upload failed: {response.status_code} - {response.text}")
+    # Open file in binary mode
+    try:
+        response = requests.post(
+            upload_url,
+            headers=headers,
+            files={'file': (file.name, file, 'application/octet-stream')}  # Correct way to send files in POST request
+        )
 
-    # Return the **public** URL
-    return f"https://{SUPABASE_URL.split('//')[1]}/storage/v1/object/public/{SUPABASE_BUCKET}/{path_in_bucket}"
+        # Check for successful upload
+        if response.status_code not in [200, 201]:
+            raise Exception(f"Upload failed: {response.status_code} - {response.text}")
 
+        # Return the **public** URL
+        return f"https://{SUPABASE_URL.split('//')[1]}/storage/v1/object/public/{SUPABASE_BUCKET}/{path_in_bucket}"
 
+    except Exception as e:
+        raise Exception(f"Error uploading to Supabase: {str(e)}")
 
 
 
@@ -173,6 +181,8 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
         try:
             filename = os.path.basename(uploaded_file.name)
             path = f"offer_letters/{telegram_id}/{filename}"
+
+            # Upload the file and get the file URL
             file_url = upload_to_supabase(uploaded_file, path)
 
             offer_letter = InternshipOfferLetter.objects.create(
