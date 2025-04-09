@@ -15,6 +15,7 @@ from telegram_bot.models import OTPVerification
 from datetime import timedelta
 import os
 import requests
+from rest_framework.parsers import MultiPartParser
 
 
 class StudentRegistrationView(APIView):
