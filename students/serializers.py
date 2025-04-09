@@ -68,11 +68,30 @@ class InternshipOfferLetterSerializer(serializers.ModelSerializer):
         # We don't need to pop the document field if we're not manually handling file saving
         return super().create(validated_data)
 
+
+class InternshipOfferLetterSerializer(serializers.ModelSerializer):
+    telegram_id = serializers.CharField(write_only=True)
+    document = serializers.FileField(write_only=True)  # For file upload
+    
+    document_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InternshipOfferLetter
+        fields = ['telegram_id', 'company', 'document', 'document_url']
+        extra_kwargs = {'document': {'required': True}}
+
+    def get_document_url(self, obj):
+        if hasattr(obj, 'document') and obj.document:
+            return obj.document.url
+        return None
+
+    def create(self, validated_data):
+        return super().create(validated_data)
+
 class InternshipReportSerializer(serializers.ModelSerializer):
-    document = serializers.FileField(write_only=True, use_url=False)  # Don't include the URL in the response
+    document = serializers.FileField(write_only=True, use_url=False)
     telegram_id = serializers.CharField(write_only=True)
     
-    # Add document_url as a read-only field if it’s supposed to provide the URL
     document_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -80,7 +99,10 @@ class InternshipReportSerializer(serializers.ModelSerializer):
         fields = ['telegram_id', 'report_number', 'document', 'document_url']
         extra_kwargs = {'document': {'required': True}}
 
+    def get_document_url(self, obj):
+        if hasattr(obj, 'document') and obj.document:
+            return obj.document.url
+        return None
 
     def create(self, validated_data):
         return super().create(validated_data)
-
