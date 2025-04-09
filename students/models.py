@@ -52,6 +52,7 @@ class InternshipOfferLetter(models.Model):
     student = models.OneToOneField(Student, on_delete=models.CASCADE)
     company = models.CharField(max_length=100)
     submission_date = models.DateTimeField(auto_now_add=True)
+    document = models.FileField(upload_to='offer_letters/')
     document_url = models.URLField(blank=True, null=True)
     advisor_approved = models.CharField(
         max_length=10, choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')],
@@ -66,6 +67,7 @@ class InternshipOfferLetter(models.Model):
 class InternshipReport(models.Model):
     REPORT_CHOICES = [(i, f"{i} Report") for i in range(1, 5)]
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    document = models.FileField(upload_to='offer_letters/')
     document_url = models.URLField(blank=True, null=True)
     submission_date = models.DateTimeField(auto_now_add=True)
     report_number = models.IntegerField(choices=REPORT_CHOICES)
