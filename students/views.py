@@ -219,8 +219,8 @@ class InternshipReportUploadView(generics.CreateAPIView):
         if not student:
             return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Ensure that the offer letter is approved
-        # offer_letter = InternshipOfferLetter.objects.filter(student=student).first()
+        
+        offer_letter = InternshipOfferLetter.objects.filter(student=student).first()
         # if not offer_letter or offer_letter.advisor_approved != 'Approved':
         #     return Response({"error": "Approved offer letter required"}, status=status.HTTP_400_BAD_REQUEST)
 
