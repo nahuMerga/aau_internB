@@ -60,10 +60,12 @@ class InternshipOfferLetterSerializer(serializers.ModelSerializer):
         model = InternshipOfferLetter
         fields = ['telegram_id', 'company', 'document', 'document_url']
         extra_kwargs = {'document': {'required': True}}
-
+    
     def get_document_url(self, obj):
+        request = self.context.get('request')
         if hasattr(obj, 'document') and obj.document:
-            return obj.document.url
+            url = obj.document.url
+            return request.build_absolute_uri(url) if request else url
         return None
 
     def create(self, validated_data):
@@ -80,10 +82,14 @@ class InternshipReportSerializer(serializers.ModelSerializer):
         fields = ['telegram_id', 'report_number', 'document', 'document_url']
         extra_kwargs = {'document': {'required': True}}
 
+# For InternshipReportSerializer
     def get_document_url(self, obj):
+        request = self.context.get('request')
         if hasattr(obj, 'document') and obj.document:
-            return obj.document.url
+            url = obj.document.url
+            return request.build_absolute_uri(url) if request else url
         return None
+
 
     def create(self, validated_data):
         return super().create(validated_data)
