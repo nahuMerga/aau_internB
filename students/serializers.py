@@ -48,25 +48,6 @@ class StudentSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['assigned_advisor', 'otp_verified']  # Prevent students from modifying this field
 
-class InternshipOfferLetterSerializer(serializers.ModelSerializer):
-    telegram_id = serializers.CharField(write_only=True)
-    document = serializers.FileField(write_only=True)  # Keep this for file upload
-    
-    # Add document_url as a read-only field if it’s supposed to provide the URL
-    document_url = serializers.SerializerMethodField()
-
-    class Meta:
-        model = InternshipOfferLetter
-        fields = ['telegram_id', 'company', 'document', 'document_url']
-        extra_kwargs = {'document': {'required': True}}
-
-    # Method to get the URL of the uploaded document
-    def get_document_url(self, obj):
-        return obj.document.url if obj.document else None
-
-    def create(self, validated_data):
-        # We don't need to pop the document field if we're not manually handling file saving
-        return super().create(validated_data)
 
 
 class InternshipOfferLetterSerializer(serializers.ModelSerializer):
