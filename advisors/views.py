@@ -240,7 +240,7 @@ class ApproveOfferLetterView(APIView):
                 }
                 try:
                     response = requests.post(
-                        "https://0e83-196-189-127-75.ngrok-free.app/update-status",
+                        "https://is-internship-tracking-bot.onrender.com",
                         json=payload
                     )
                     response.raise_for_status()  # Optional: raise error for bad status
