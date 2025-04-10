@@ -202,7 +202,6 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
 class InternshipReportUploadView(generics.CreateAPIView):
     serializer_class = InternshipReportSerializer
     permission_classes = [AllowAny]
@@ -213,23 +212,19 @@ class InternshipReportUploadView(generics.CreateAPIView):
 
         telegram_id = serializer.validated_data.get('telegram_id')
         report_number = serializer.validated_data.get('report_number')
-        uploaded_file = request.FILES.get('document')  # Get the file from request.FILES
+        uploaded_file = request.FILES.get('document')
 
         student = Student.objects.filter(telegram_id=telegram_id).first()
         if not student:
             return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        
         offer_letter = InternshipOfferLetter.objects.filter(student=student).first()
-        # if not offer_letter or offer_letter.advisor_approved != 'Approved':
-        #     return Response({"error": "Approved offer letter required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if the report has already been submitted
         existing_reports = InternshipReport.objects.filter(student=student)
+
         if existing_reports.filter(report_number=report_number).exists():
             return Response({"error": f"Report {report_number} already submitted"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Ensure reports are submitted in the correct order
         expected_report = existing_reports.count() + 1
         if report_number != expected_report:
             return Response({
@@ -238,35 +233,49 @@ class InternshipReportUploadView(generics.CreateAPIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Create the file path in the Supabase bucket
-            filename = os.path.basename(uploaded_file.name)  # Get the filename
-            path = f"reports/{telegram_id}/{filename}"  # Define the path in the bucket
-
-            # Upload the file and get the file URL
+            filename = os.path.basename(uploaded_file.name)
+            path = f"reports/{telegram_id}/{filename}"
             file_url = upload_to_supabase(uploaded_file, path)
 
-            # Create the internship report entry
-            report = InternshipReport.objects.create(
+            # Save the report
+            InternshipReport.objects.create(
                 student=student,
                 report_number=report_number,
                 document_url=file_url
             )
 
-            # Calculate the progress and remaining reports
             progress = f"{report_number}/4 reports submitted"
             remaining = 4 - report_number
 
-            return Response({
+            response_data = {
                 "message": f"📘 Report {report_number} submitted successfully!",
                 "progress": progress,
                 "remaining_reports": remaining,
                 "company": offer_letter.company,
                 "document_url": file_url
-            }, status=status.HTTP_201_CREATED)
+            }
+
+            # ✅ If it's the 4th and final report
+            if report_number == 4:
+                student.status = "Completed"
+                student.save()
+
+                if telegram_id:
+                    try:
+                        requests.post("https://is-internship-tracking-bot.onrender.com", json={
+                            "telegram_id": telegram_id,
+                            "status": "Completed"
+                        })
+                    except requests.RequestException as e:
+                        print(f"Failed to notify bot for {student.full_name}: {e}")
+
+                response_data["status"] = "Completed"
+                response_data["message"] += " 🎉 Internship completed!"
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
         
 
