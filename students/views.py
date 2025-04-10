@@ -262,7 +262,7 @@ class InternshipReportUploadView(generics.CreateAPIView):
 
                 if telegram_id:
                     try:
-                        requests.post("https://is-internship-tracking-bot.onrender.com", json={
+                        requests.post("https://is-internship-tracking-bot.onrender.com/update-status", json={
                             "telegram_id": telegram_id,
                             "status": "Completed"
                         })
