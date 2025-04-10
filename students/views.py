@@ -171,12 +171,12 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
         student = Student.objects.filter(telegram_id=telegram_id).first()
         if not student:
             return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
-        if not student.otp_verified:
-            return Response({"error": "OTP verification required"}, status=status.HTTP_403_FORBIDDEN)
+        # if not student.otp_verified:
+        #     return Response({"error": "OTP verification required"}, status=status.HTTP_403_FORBIDDEN)
         if not student.assigned_advisor:
             return Response({"error": "Advisor not assigned yet"}, status=status.HTTP_400_BAD_REQUEST)
-        if InternshipOfferLetter.objects.filter(student=student, advisor_approved='Approved').exists():
-            return Response({"error": "Approved offer letter already exists"}, status=status.HTTP_400_BAD_REQUEST)
+        # if InternshipOfferLetter.objects.filter(student=student, advisor_approved='Approved').exists():
+        #     return Response({"error": "Approved offer letter already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             filename = os.path.basename(uploaded_file.name)
