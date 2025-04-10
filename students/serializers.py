@@ -54,19 +54,10 @@ class InternshipOfferLetterSerializer(serializers.ModelSerializer):
     telegram_id = serializers.CharField(write_only=True)
     document = serializers.FileField(write_only=True)  # For file upload
     
-    document_url = serializers.SerializerMethodField()
-
     class Meta:
         model = InternshipOfferLetter
         fields = ['telegram_id', 'company', 'document', 'document_url']
         extra_kwargs = {'document': {'required': True}}
-    
-    def get_document_url(self, obj):
-        request = self.context.get('request')
-        if hasattr(obj, 'document') and obj.document:
-            url = obj.document.url
-            return request.build_absolute_uri(url) if request else url
-        return None
 
     def create(self, validated_data):
         return super().create(validated_data)
@@ -75,21 +66,10 @@ class InternshipReportSerializer(serializers.ModelSerializer):
     document = serializers.FileField(write_only=True, use_url=False)
     telegram_id = serializers.CharField(write_only=True)
     
-    document_url = serializers.SerializerMethodField()
-
     class Meta:
         model = InternshipReport
         fields = ['telegram_id', 'report_number', 'document', 'document_url']
         extra_kwargs = {'document': {'required': True}}
-
-# For InternshipReportSerializer
-    def get_document_url(self, obj):
-        request = self.context.get('request')
-        if hasattr(obj, 'document') and obj.document:
-            url = obj.document.url
-            return request.build_absolute_uri(url) if request else url
-        return None
-
 
     def create(self, validated_data):
         return super().create(validated_data)
