@@ -140,7 +140,6 @@ class AdvisorStudentsView(APIView):
                 "start_date": student.start_date,
                 "end_date": student.end_date,
                 "student_grade": student.student_grade,
-                "company_name": offer_letter.company if offer_letter else None,
                 "offer_letter": InternshipOfferLetterSerializer(offer_letter).data if offer_letter else None,
                 "internship_reports": InternshipReportSerializer(reports, many=True).data
             })
