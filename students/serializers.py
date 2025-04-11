@@ -57,7 +57,9 @@ class InternshipOfferLetterSerializer(serializers.ModelSerializer):
     class Meta:
         model = InternshipOfferLetter
         fields = ['telegram_id', 'company', 'document', 'document_url']
-        extra_kwargs = {'document': {'required': True}}
+        extra_kwargs = {
+            'document': {'required': False, 'allow_null': True}  # Making the document field nullable
+        }
 
     def create(self, validated_data):
         return super().create(validated_data)
@@ -69,7 +71,9 @@ class InternshipReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = InternshipReport
         fields = ['telegram_id', 'report_number', 'document', 'document_url']
-        extra_kwargs = {'document': {'required': True}}
+        extra_kwargs = {
+            'document': {'required': False, 'allow_null': True}  # Making the document field nullable
+        }
 
     def create(self, validated_data):
         return super().create(validated_data)
