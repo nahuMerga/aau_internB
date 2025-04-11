@@ -69,7 +69,7 @@ class StudentRegistrationView(APIView):
         self.mark_otp_verified(university_id)
 
         return Response({
-            "message": f"🎉 Congratulations {student.full_name}! You have successfully registered! 🎉\nNow you can start using the mini app. 🚀\n\nWelcome to the AAU Internship System! 🏆\n\n👉 [Start using the mini app](http://your-mini-app-link.com) 👈",
+            "message": f"🎉 Congratulations {student.full_name}! You have successfully registered! 🎉\nNow you can start using the mini app. 🚀\n\nWelcome to the AAU Internship System! 🏆\n\n👉 [Start using the mini app](https://internship-mini-app.vercel.app/) 👈",
             "OTPVerified": True,
         }, status=status.HTTP_201_CREATED)
 
