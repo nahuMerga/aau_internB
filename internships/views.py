@@ -10,7 +10,9 @@ from students.models import Student
 from advisors.models import Advisor
 from students.serializers import StudentSerializer, InternshipOfferLetterSerializer,InternshipReportSerializer
 from advisors.serializers import AdvisorSerializer
-from internships.serializers import InternshipPeriodSerializer
+from internships.serializers import InternshipPeriodSerializer, CompanySerializer
+from .models import Company
+
 
 class AdminStudentsListView(generics.ListAPIView):
     """Admin can view all students"""
@@ -76,4 +78,13 @@ class InternshipPeriodView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+# View for GET and POST requests
+class CompanyListCreateView(generics.ListCreateAPIView):
+    queryset = Company.objects.all()
+    serializer_class = CompanySerializer
+
+    def perform_create(self, serializer):
+        # Custom save behavior (optional)
+        serializer.save()
 
