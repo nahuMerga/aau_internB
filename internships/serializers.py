@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import InternStudentList, InternshipPeriod, ThirdYearStudentList
+from .models import InternStudentList, InternshipPeriod, ThirdYearStudentList, Company
 
 class ThirdYearStudentListSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,3 +16,8 @@ class InternshipPeriodSerializer(serializers.ModelSerializer):
     class Meta:
         model = InternshipPeriod
         fields = ['registration_start', 'registration_end', 'internship_start', 'internship_end']
+
+class CompanySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Company
+        fields = '__all__'  # This will include all fields in the model
