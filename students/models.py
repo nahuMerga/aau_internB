@@ -17,7 +17,9 @@ class Student(models.Model):
     telegram_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Pending')
     start_date = models.DateField(null=True, blank=True)
+    report_amount = models.PositiveIntegerField(default=4)
     end_date = models.DateField(null=True, blank=True)
+    internship_year = models.PositiveIntegerField(null=True, blank=True)
     student_grade = models.IntegerField(
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(40)]  # 4 reports × 10 points
