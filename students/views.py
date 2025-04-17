@@ -219,17 +219,18 @@ class InternshipReportUploadView(generics.CreateAPIView):
             return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
 
         offer_letter = InternshipOfferLetter.objects.filter(student=student).first()
-
         existing_reports = InternshipReport.objects.filter(student=student)
 
+        # Check for duplicate report upload
         if existing_reports.filter(report_number=report_number).exists():
             return Response({"error": f"Report {report_number} already submitted"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Check expected report number
         expected_report = existing_reports.count() + 1
         if report_number != expected_report:
             return Response({
                 "error": f"Expected report #{expected_report} next",
-                "current_progress": f"{existing_reports.count()}/4 reports submitted"
+                "current_progress": f"{existing_reports.count()}/{student.report_amount} reports submitted"
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -244,19 +245,19 @@ class InternshipReportUploadView(generics.CreateAPIView):
                 document_url=file_url
             )
 
-            progress = f"{report_number}/4 reports submitted"
-            remaining = 4 - report_number
+            progress = f"{report_number}/{student.report_amount} reports submitted"
+            remaining = student.report_amount - report_number
 
             response_data = {
                 "message": f"📘 Report {report_number} submitted successfully!",
                 "progress": progress,
                 "remaining_reports": remaining,
-                "company": offer_letter.company,
+                "company": offer_letter.company if offer_letter else None,
                 "document_url": file_url
             }
 
-            # ✅ If it's the 4th and final report
-            if report_number == 4:
+            # ✅ If it's the final report
+            if report_number == student.report_amount:
                 student.status = "Completed"
                 student.save()
 
@@ -325,16 +326,18 @@ class ReportStatusView(APIView):
         reports = []
         existing_reports = {r.report_number: r for r in InternshipReport.objects.filter(student=student)}
 
-        for i in range(1, 5):
+        # Use the actual report_amount for the loop
+        for i in range(1, student.report_amount + 1):
             report = existing_reports.get(i)
             reports.append({
                 "report_number": i,
                 "uploaded": bool(report),
-                "document": report.document_url if report else None  # ✅ Use document_url
+                "document": report.document_url if report else None
             })
 
         return Response({
             "student_name": student.full_name,
             "advisor_name": f"{student.assigned_advisor.first_name} {student.assigned_advisor.last_name}" if student.assigned_advisor else None,
+            "report_amount": student.report_amount,
             "reports": reports
         })
