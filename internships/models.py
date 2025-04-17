@@ -2,6 +2,41 @@ from django.db import models
 from students.models import Student
 from advisors.models import Advisor
 
+class Company(models.Model):
+    FRONTEND = 'front-end'
+    BACKEND = 'back-end'
+    OTHERS = 'others'
+
+    POSITION_CHOICES = [
+        (FRONTEND, 'Front-End'),
+        (BACKEND, 'Back-End'),
+        (OTHERS, 'Others'),
+    ]
+
+    name = models.CharField(max_length=255)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20)
+    address = models.CharField(max_length=255)
+    supervisor_name = models.CharField(max_length=100)
+    supervisor_email = models.EmailField(null=True, blank=True)
+    supervisor_phone = models.CharField(max_length=20, null=True, blank=True)
+    position = models.CharField(max_length=20, choices=POSITION_CHOICES, default=OTHERS)
+    description = models.TextField()
+
+    def __str__(self):
+        return self.name
+
+class Internship(models.Model):
+    student = models.OneToOneField(Student, on_delete=models.CASCADE)
+    company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    status = models.CharField(max_length=15, choices=[('Ongoing', 'Ongoing'), ('Completed', 'Completed')], default='Ongoing')
+
+    def __str__(self):
+        return f"{self.student.full_name} - {self.company.name}"
+
+
 class ThirdYearStudentList(models.Model):
     university_id = models.CharField(max_length=20, unique=True, primary_key=True)
     full_name = models.CharField(max_length=100)
@@ -53,3 +88,16 @@ class InternshipPeriod(models.Model):
     
     def __str__(self):
         return f"Registration: {self.registration_start} to {self.registration_end}"
+    
+
+
+class InternshipHistory(models.Model):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True)
+    year = models.PositiveIntegerField()
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    def __str__(self):
+        return f"{self.student.full_name} - {self.year}"
+
