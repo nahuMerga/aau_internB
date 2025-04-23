@@ -7,7 +7,8 @@ from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from advisors.models import Advisor
 from students.models import Student, InternshipOfferLetter,InternshipReport
-from students.serializers import StudentSerializer, InternshipReportSerializer, InternshipOfferLetterSerializer
+from internships.serializers import CompanySerializer
+from students.serializers import StudentSerializer, InternshipReportSerializer, InternshipOfferLetterSerializer, InternshipReportReadSerializer , InternshipOfferLetterReadSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from .serializers import AdvisorRegistrationSerializer, AdvisorSerializer, UserSerializer, AdvisorProfileSerializer
@@ -102,8 +103,11 @@ class LogoutView(APIView):
             return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
         
 class AdvisorStudentsView(APIView):
-    """Get a list of students assigned to the logged-in advisor, including offer letter, reports, and dashboard stats."""
-    permission_classes = [AllowAny]  # Update to IsAuthenticated if you want to enforce login
+    """
+    Get a list of students assigned to the logged-in advisor,
+    including offer letter, reports, and dashboard stats.
+    """
+    permission_classes = [AllowAny]
 
     def get(self, request):
         advisor = getattr(request.user, "advisor", None)
@@ -121,14 +125,12 @@ class AdvisorStudentsView(APIView):
             offer_letter = InternshipOfferLetter.objects.filter(student=student).first()
             reports = InternshipReport.objects.filter(student=student)
 
-            # Count pending approvals
-            if student.status == "pending":  # Adjust based on your actual statuses
+            # Count pending advisor approvals for offer letter
+            if offer_letter and offer_letter.advisor_approved == "Pending":
                 pending_approval_count += 1
 
-            # Count unreviewed reports
-            for report in reports:
-                if not getattr(report, "is_reviewed", False):  # Adjust if field is named differently
-                    reports_to_review_count += 1
+            # Count how many reports the student has (to review = all of them for now)
+            reports_to_review_count += reports.count()
 
             student_data.append({
                 "id": student.id,
@@ -139,9 +141,9 @@ class AdvisorStudentsView(APIView):
                 "status": student.status,
                 "start_date": student.start_date,
                 "end_date": student.end_date,
-                "department": student.department.name,  # Get only the department name
-                "offer_letter": InternshipOfferLetterSerializer(offer_letter).data if offer_letter else None,
-                "internship_reports": InternshipReportSerializer(reports, many=True).data
+                "department": student.department.name,
+                "offer_letter": InternshipOfferLetterReadSerializer(offer_letter).data if offer_letter else None,
+                "internship_reports": InternshipReportReadSerializer(reports, many=True).data
             })
 
         response_data = {
@@ -179,14 +181,34 @@ class StudentDetailView(APIView):
 
         # Serialize response
         student_data = StudentSerializer(student).data
-        student_data["internship_offer_letter"] = (
-            InternshipOfferLetterSerializer(offer_letter).data if offer_letter else None
-        )
-        student_data["internship_reports"] = InternshipReportSerializer(reports, many=True).data
-        student_data["company"] = offer_letter.company if offer_letter else None  # ✅ Added line
+        
+        # Handle internship offer letter details
+        if offer_letter:
+            student_data["internship_offer_letter"] = {
+                "document_url": offer_letter.document_url,  # Add URL for the offer letter document
+                "advisor_approved": offer_letter.advisor_approved,
+                "approval_date": offer_letter.approval_date,
+                "submission_date": offer_letter.submission_date,
+                "company": CompanySerializer(offer_letter.company).data if offer_letter.company else None,  # Serialize the company
+            }
+        else:
+            student_data["internship_offer_letter"] = None
+
+        # Handle internship reports details
+        student_data["internship_reports"] = []
+        for report in reports:
+            student_data["internship_reports"].append({
+                "report_number": report.report_number,
+                "document_url": report.document_url,  # Add URL for the report document
+                "submission_date": report.submission_date,
+                "created_at": report.created_at,
+            })
+
+        # Additional student details
         student_data["department"] = student.department.name  # Include department name only
 
         return Response(student_data, status=status.HTTP_200_OK)
+
 
 
 class ApproveOfferLetterView(APIView):

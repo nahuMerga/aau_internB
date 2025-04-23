@@ -34,3 +34,24 @@ class InternshipOfferLetterSerializer(serializers.ModelSerializer):
     class Meta:
         model = InternshipOfferLetter
         fields = ['telegram_id', 'document']
+        
+# Serializer for reading internship reports
+class InternshipReportReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InternshipReport
+        fields = [ 'report_number', 'document_url', 'submission_date', 'created_at']
+
+# Serializer for reading offer letters
+class InternshipOfferLetterReadSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source='company.name', read_only=True)
+
+    class Meta:
+        model = InternshipOfferLetter
+        fields = [
+            'company_name',
+            'document_url',
+            'advisor_approved',
+            'approval_date',
+            'submission_date',
+            'created_at',
+        ]
