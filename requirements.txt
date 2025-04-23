@@ -12,3 +12,5 @@ django_apscheduler
 requests
 python-dotenv
 supabase
+pandas
+openpyxl

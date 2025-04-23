@@ -1,6 +1,64 @@
 from django.db import models
-from students.models import Student
+# from students.models import Student
 from advisors.models import Advisor
+from django.apps import apps
+from datetime import datetime
+# from students.models import Student
+
+class Department(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    internship_duration_weeks = models.PositiveIntegerField()
+    required_reports_count = models.PositiveIntegerField()
+    report_submission_interval_days = models.PositiveIntegerField(default=15)
+    internship_start = models.DateField()
+    internship_end = models.DateField()
+    
+
+    def is_valid_calendar(self):
+        """Check if internship dates are valid"""
+        return self.internship_start <= self.internship_end
+
+    def __str__(self):
+        return self.name
+
+
+class Company(models.Model):
+    FRONTEND = 'front-end'
+    BACKEND = 'back-end'
+    OTHERS = 'others'
+
+    POSITION_CHOICES = [
+        (FRONTEND, 'Front-End'),
+        (BACKEND, 'Back-End'),
+        (OTHERS, 'Others'),
+    ]
+    
+    name = models.CharField(max_length=255)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20)
+    address = models.CharField(max_length=255)
+    supervisor_name = models.CharField(max_length=100)
+    supervisor_email = models.EmailField(null=True, blank=True)
+    supervisor_phone = models.CharField(max_length=20, null=True, blank=True)
+    position = models.CharField(max_length=20, choices=POSITION_CHOICES, default=OTHERS)
+    description = models.TextField()
+
+    def __str__(self):
+        return self.name
+
+class Internship(models.Model):
+    student = models.ForeignKey(
+        'students.Student',  # use string reference
+        on_delete=models.CASCADE
+    )
+    company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    status = models.CharField(max_length=15, choices=[('Ongoing', 'Ongoing'), ('Completed', 'Completed')], default='Ongoing')
+
+    def __str__(self):
+        return f"{self.student.full_name} - {self.company.name}"
+
 
 class ThirdYearStudentList(models.Model):
     university_id = models.CharField(max_length=20, unique=True, primary_key=True)
@@ -20,36 +78,23 @@ class InternStudentList(models.Model):
         on_delete=models.CASCADE,
         related_name='internship_record'
     )
-    # phone_number = models.CharField(max_length=15)
-    # telegram_id = models.CharField(max_length=50, unique=True, blank=True, null=True)
-    # status = models.CharField(
-    #     max_length=10,
-    #     choices=[('Pending', 'Pending'), ('Ongoing', 'Ongoing'), ('Completed', 'Completed')],
-    #     default='Pending'
-    # )
-    # start_date = models.DateField(null=True, blank=True)
-    # end_date = models.DateField(null=True, blank=True)
+
     
     def __str__(self):
         return f"{self.student.full_name}'s Internship"  # Customize as needed
+    
 
-class InternshipPeriod(models.Model):
-    registration_start = models.DateField()
-    registration_end = models.DateField()
-    internship_start = models.DateField()
-    internship_end = models.DateField()
-    advisors_assigned = models.BooleanField(default=False) 
-    
-    def is_registration_active(self):
-        from django.utils import timezone
-        now = timezone.now().date()
-        return self.registration_start <= now <= self.registration_end
-    
-    def is_valid_calendar(self):
-        """Check if internship start and end dates are valid (start before end)."""
-        if self.internship_start > self.internship_end:
-            return False
-        return True
-    
+
+class InternshipHistory(models.Model):
+    student = models.ForeignKey(
+        'students.Student',  # use string reference
+        on_delete=models.CASCADE
+    )
+    company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True)
+    year = models.PositiveIntegerField(default=datetime.now().year)
+    start_date = models.DateField()
+    end_date = models.DateField()
+
     def __str__(self):
-        return f"Registration: {self.registration_start} to {self.registration_end}"
+        return f"{self.student.full_name} - {self.year}"
+

@@ -1,88 +1,85 @@
-from internships.models import ThirdYearStudentList, InternshipPeriod
-from advisors.models import Advisor
-from django.utils import timezone
-from apscheduler.schedulers.background import BackgroundScheduler
-from django_apscheduler.jobstores import DjangoJobStore
-import datetime
+# from internships.models import ThirdYearStudentList
+# from advisors.models import Advisor
+# from students.models import Department
+# from django.utils import timezone
+# from apscheduler.schedulers.background import BackgroundScheduler
+# from django_apscheduler.jobstores import DjangoJobStore
+# import datetime
+# from collections import defaultdict
+# from django.db.models import Count
 
-scheduler = BackgroundScheduler()
-scheduler.add_jobstore(DjangoJobStore(), "default")
+# scheduler = BackgroundScheduler()
+# scheduler.add_jobstore(DjangoJobStore(), "default")
 
-from collections import defaultdict
-from django.db.models import Count
+# def assign_advisors_to_third_year_students():
+#     """Assigns advisors to unassigned third-year students as fairly as possible"""
+#     students = ThirdYearStudentList.objects.filter(assigned_advisor__isnull=True).order_by("full_name")
+#     advisors = list(Advisor.objects.annotate(current_load=Count('thirdyearstudentlist')).order_by('current_load', 'first_name'))
 
-def assign_advisors_to_third_year_students():
-    """Assigns advisors to unassigned third-year students as fairly as possible"""
-    students = ThirdYearStudentList.objects.filter(assigned_advisor__isnull=True).order_by("full_name")
-    advisors = list(Advisor.objects.annotate(current_load=Count('thirdyearstudentlist')).order_by('current_load', 'first_name'))
+#     if not advisors:
+#         print("❌ No advisors available")
+#         return
 
-    if not advisors:
-        print("❌ No advisors available")
-        return
+#     for student in students:
+#         # Always assign the advisor with the fewest students
+#         advisors[0].thirdyearstudentlist_set.add(student)
+#         student.assigned_advisor = advisors[0]
+#         student.save()
 
-    for student in students:
-        # Always assign the advisor with the fewest students
-        advisors[0].thirdyearstudentlist_set.add(student)
-        student.assigned_advisor = advisors[0]
-        student.save()
+#         # Update the current load by re-sorting the advisors list
+#         advisors = sorted(advisors, key=lambda a: a.thirdyearstudentlist_set.count())
 
-        # Update the current load by re-sorting the advisors list
-        advisors = sorted(advisors, key=lambda a: a.thirdyearstudentlist_set.count())
+#     print(f"✅ Assigned advisors to {len(students)} students")
 
-    print(f"✅ Assigned advisors to {len(students)} students")
+# def check_and_assign():
+#     """Checks if registration period has ended in any department and assigns advisors if needed"""
+#     try:
+#         # Get all departments where registration has ended but advisors haven't been assigned
+#         departments = Department.objects.filter(
+#             registration_end__lte=timezone.now().date(),
+#             advisors_assigned=False
+#         )
+#     except Exception as e:
+#         print(f"⚠️ Error fetching departments: {e}")
+#         return
 
+#     if not departments.exists():
+#         print("🔴 No departments with completed registration periods needing advisor assignment")
+#         return
 
-def check_and_assign():
-    """Checks if registration period has ended and assigns advisors if needed"""
-    try:
-        period = InternshipPeriod.objects.latest("registration_end")
-    except InternshipPeriod.DoesNotExist:
-        print("⚠️ No internship period found")
-        return
-
-    if period.advisors_assigned:
-        print("✅ Advisors already assigned. Stopping scheduler...")
-        scheduler.remove_job('check_and_assign_job')
-        scheduler.shutdown(wait=False)
-        return
-
-    # Create timezone-aware end datetime (3:35 PM on registration end date)
-    end_datetime = timezone.make_aware(
-        datetime.datetime.combine(
-            period.registration_end,
-            datetime.time(hour=15, minute=35)
-        )
-    )
-
-    now = timezone.now()
-
-    if now >= end_datetime:
-        print("🟢 Registration period ended - assigning advisors")
-        assign_advisors_to_third_year_students()
+#     for department in departments:
+#         print(f"🟢 Registration period ended for {department.name} - assigning advisors")
         
-        # Mark assignment as complete
-        period.advisors_assigned = True
-        period.save()
+#         # Assign advisors to students in this department
+#         assign_advisors_to_third_year_students()
         
-        # Clean up scheduler
-        scheduler.remove_job('check_and_assign_job')
-        scheduler.shutdown(wait=False)
-        print("🛑 Scheduler stopped after assignment")
-    else:
-        print(f"🔴 Registration ongoing (ends at {end_datetime})")
+#         # Mark assignment as complete for this department
+#         department.advisors_assigned = True
+#         department.save()
+    
+#     # Check if we should stop the scheduler (when all departments are processed)
+#     remaining_departments = Department.objects.filter(
+#         registration_end__lte=timezone.now().date(),
+#         advisors_assigned=False
+#     ).exists()
+    
+#     if not remaining_departments:
+#         print("✅ All departments processed. Stopping scheduler...")
+#         scheduler.remove_job('check_and_assign_job')
+#         scheduler.shutdown(wait=False)
 
-def start_scheduler():
-    """Starts the background scheduler"""
-    if not scheduler.running:
-        try:
-            scheduler.add_job(
-                check_and_assign,
-                'interval',
-                minutes=1,
-                id='check_and_assign_job',
-                replace_existing=True
-            )
-            scheduler.start()
-            print("⏰ Scheduler started - checking every minute")
-        except Exception as e:
-            print(f"❌ Failed to start scheduler: {e}")
+# def start_scheduler():
+#     """Starts the background scheduler"""
+#     if not scheduler.running:
+#         try:
+#             scheduler.add_job(
+#                 check_and_assign,
+#                 'interval',
+#                 minutes=1,
+#                 id='check_and_assign_job',
+#                 replace_existing=True
+#             )
+#             scheduler.start()
+#             print("⏰ Scheduler started - checking every minute")
+#         except Exception as e:
+#             print(f"❌ Failed to start scheduler: {e}")

@@ -139,7 +139,7 @@ class AdvisorStudentsView(APIView):
                 "status": student.status,
                 "start_date": student.start_date,
                 "end_date": student.end_date,
-                "student_grade": student.student_grade,
+                "department": student.department.name,  # Get only the department name
                 "offer_letter": InternshipOfferLetterSerializer(offer_letter).data if offer_letter else None,
                 "internship_reports": InternshipReportSerializer(reports, many=True).data
             })
@@ -184,6 +184,7 @@ class StudentDetailView(APIView):
         )
         student_data["internship_reports"] = InternshipReportSerializer(reports, many=True).data
         student_data["company"] = offer_letter.company if offer_letter else None  # ✅ Added line
+        student_data["department"] = student.department.name  # Include department name only
 
         return Response(student_data, status=status.HTTP_200_OK)
 
@@ -217,22 +218,29 @@ class ApproveOfferLetterView(APIView):
 
         student = offer_letter.student
 
+        # Fetch internship duration from the department the student belongs to
+        department = student.department
+        if department:
+            internship_duration_days = department.internship_duration_weeks * 7  # Convert weeks to days
+        else:
+            return Response({"error": "Department information is missing for this student"}, status=status.HTTP_400_BAD_REQUEST)
+
         # Handling approve/reject logic
         if status_value == "Approved":
             now = timezone.now().date()
 
-            # ✅ Set approval info
+            # Set approval info
             offer_letter.advisor_approved = "Approved"
             offer_letter.approval_date = timezone.now()
             offer_letter.save()
 
-            # ✅ Set student internship duration
+            # Set student internship duration dynamically
             student.start_date = now
-            student.end_date = now + timedelta(days=60)  # ~2 months
+            student.end_date = now + timedelta(days=internship_duration_days)  # Use dynamic duration
             student.status = "Ongoing"
             student.save()
 
-            # ✅ Send notification via POST request
+            # Send notification via POST request
             if student.telegram_id:
                 payload = {
                     "telegram_id": student.telegram_id,
@@ -259,4 +267,5 @@ class ApproveOfferLetterView(APIView):
             "student_name": student.full_name,
             "student_university_id": student.university_id
         }, status=status.HTTP_200_OK)
+
 

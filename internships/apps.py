@@ -6,5 +6,6 @@ class InternshipsConfig(AppConfig):
     name = 'internships'
     
     def ready(self):
-        from .tasks import start_scheduler
-        start_scheduler()
+        pass
+        # from .tasks import start_scheduler
+        # start_scheduler()
