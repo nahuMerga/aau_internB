@@ -234,8 +234,8 @@ class InternshipReportUploadView(generics.CreateAPIView):
             return Response({"error": "No advisor assigned to this student"}, status=status.HTTP_400_BAD_REQUEST)
 
         offer_letter = InternshipOfferLetter.objects.filter(student=student).first()
-        if not offer_letter or offer_letter.advisor_approved != 'Approved':
-            return Response({"error": "Advisor approval required before submitting reports."}, status=status.HTTP_400_BAD_REQUEST)
+        # if not offer_letter or offer_letter.advisor_approved != 'Approved':
+        #     return Response({"error": "Advisor approval required before submitting reports."}, status=status.HTTP_400_BAD_REQUEST)
 
         # ✅ Get advisor-configured settings
         required_reports = advisor.number_of_expected_reports
