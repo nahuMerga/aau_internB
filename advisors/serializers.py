@@ -14,6 +14,12 @@ class AdvisorProfileSerializer(serializers.ModelSerializer):
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.save()
         return instance
+    
+class AdvisorSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Advisor
+        fields = ["number_of_expected_reports", "report_submission_interval_days"]
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:

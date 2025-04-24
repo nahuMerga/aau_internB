@@ -11,7 +11,7 @@ from internships.serializers import CompanySerializer
 from students.serializers import StudentSerializer, InternshipReportSerializer, InternshipOfferLetterSerializer, InternshipReportReadSerializer , InternshipOfferLetterReadSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
-from .serializers import AdvisorRegistrationSerializer, AdvisorSerializer, UserSerializer, AdvisorProfileSerializer
+from .serializers import AdvisorRegistrationSerializer, AdvisorSerializer, UserSerializer, AdvisorProfileSerializer, AdvisorSettingsSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.http import Http404
 from django.utils import timezone
@@ -138,6 +138,7 @@ class AdvisorStudentsView(APIView):
                 "full_name": student.full_name,
                 "institutional_email": student.institutional_email,
                 "phone_number": student.phone_number,
+                "telegram_id": student.telegram_id,  # ← Added this line
                 "status": student.status,
                 "start_date": student.start_date,
                 "end_date": student.end_date,
@@ -145,6 +146,7 @@ class AdvisorStudentsView(APIView):
                 "offer_letter": InternshipOfferLetterReadSerializer(offer_letter).data if offer_letter else None,
                 "internship_reports": InternshipReportReadSerializer(reports, many=True).data
             })
+
 
         response_data = {
             "students": student_data,
@@ -181,6 +183,7 @@ class StudentDetailView(APIView):
 
         # Serialize response
         student_data = StudentSerializer(student).data
+        student_data["telegram_id"] = student.telegram_id
         
         # Handle internship offer letter details
         if offer_letter:
@@ -289,5 +292,19 @@ class ApproveOfferLetterView(APIView):
             "student_name": student.full_name,
             "student_university_id": student.university_id
         }, status=status.HTTP_200_OK)
+        
+class UpdateAdvisorSettingsView(APIView):
+    permission_classes = [AllowAny]
+
+    def put(self, request):
+        advisor = getattr(request.user, "advisor", None)
+        if not advisor:
+            return Response({"error": "User is not an advisor"}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = AdvisorSettingsSerializer(advisor, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Advisor settings updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

@@ -212,7 +212,7 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        
+
 class InternshipReportUploadView(generics.CreateAPIView):
     serializer_class = InternshipReportSerializer
     permission_classes = [AllowAny]
@@ -225,24 +225,24 @@ class InternshipReportUploadView(generics.CreateAPIView):
         report_number = serializer.validated_data.get('report_number')
         uploaded_file = request.FILES.get('document')
 
-        # ✅ Retrieve the student by telegram_id
         student = Student.objects.filter(telegram_id=telegram_id).first()
         if not student:
             return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
-        
-        # ✅ Check if offer letter is approved
+
+        advisor = student.assigned_advisor
+        if not advisor:
+            return Response({"error": "No advisor assigned to this student"}, status=status.HTTP_400_BAD_REQUEST)
+
         offer_letter = InternshipOfferLetter.objects.filter(student=student).first()
         if not offer_letter or offer_letter.advisor_approved != 'Approved':
             return Response({"error": "Advisor approval required before submitting reports."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # ✅ Get department config
-        required_reports = student.department.required_reports_count
-        interval_days = student.department.report_submission_interval_days
+        # ✅ Get advisor-configured settings
+        required_reports = advisor.number_of_expected_reports
+        interval_days = advisor.report_submission_interval_days
 
-        # ✅ Existing reports
         existing_reports = InternshipReport.objects.filter(student=student)
 
-        # ✅ Report number check
         if existing_reports.filter(report_number=report_number).exists():
             return Response({"error": f"Report {report_number} already submitted"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -253,11 +253,10 @@ class InternshipReportUploadView(generics.CreateAPIView):
                 "current_progress": f"{existing_reports.count()}/{required_reports} reports submitted"
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # ✅ Enforce report submission interval logic
         today = timezone.now().date()
         if existing_reports.exists():
             last_report = existing_reports.order_by('-report_number').first()
-            last_upload_date = last_report.created_at.date()  # Make sure your model has this field
+            last_upload_date = last_report.created_at.date()
             days_since_last = (today - last_upload_date).days
             if days_since_last < interval_days:
                 return Response({
@@ -267,7 +266,6 @@ class InternshipReportUploadView(generics.CreateAPIView):
                     "interval_days": interval_days
                 }, status=status.HTTP_400_BAD_REQUEST)
         else:
-            # First report check: ensure internship has started
             if today < student.start_date:
                 return Response({
                     "error": "Internship has not officially started yet.",
@@ -275,12 +273,10 @@ class InternshipReportUploadView(generics.CreateAPIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # ✅ Upload file
             filename = os.path.basename(uploaded_file.name)
             path = f"reports/{telegram_id}/{filename}"
             file_url = upload_to_supabase(uploaded_file, path)
 
-            # ✅ Save report
             InternshipReport.objects.create(
                 student=student,
                 report_number=report_number,
@@ -298,21 +294,17 @@ class InternshipReportUploadView(generics.CreateAPIView):
                 "document_url": file_url
             }
 
-            # ✅ Final report logic (when the last report is submitted)
             if report_number == required_reports:
                 student.status = "Completed"
                 student.save()
 
-                # ✅ Create InternshipHistory object when the internship is completed
-                if report_number == required_reports:
-                    InternshipHistory.objects.create(
-                        student=student,
-                        company=offer_letter.company,  # You can adjust this based on your model's relations Assuming you have a field for the year
-                        start_date=student.start_date,
-                        end_date=today  # End date will be the current date when the last report is submitted
-                    )
+                InternshipHistory.objects.create(
+                    student=student,
+                    company=offer_letter.company,
+                    start_date=student.start_date,
+                    end_date=today
+                )
 
-                # Notify via Telegram bot
                 if telegram_id:
                     try:
                         requests.post("https://is-internship-tracking-bot.onrender.com/update-status", json={
@@ -329,6 +321,7 @@ class InternshipReportUploadView(generics.CreateAPIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
 class OfferLetterStatusView(APIView):
     permission_classes = [AllowAny]
@@ -360,7 +353,6 @@ class OfferLetterStatusView(APIView):
 
 
 
-
 class ReportStatusView(APIView):
     permission_classes = [AllowAny]
 
@@ -373,13 +365,14 @@ class ReportStatusView(APIView):
         if not student:
             return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        reports = []
+        advisor = student.assigned_advisor
+        if not advisor:
+            return Response({"error": "No advisor assigned to this student"}, status=status.HTTP_400_BAD_REQUEST)
+
         existing_reports = {r.report_number: r for r in InternshipReport.objects.filter(student=student)}
+        report_amount = advisor.number_of_expected_reports
 
-        # Get the report amount from the student's department
-        report_amount = student.department.required_reports_count if student.department else 0
-
-        # Use the actual report_amount for the loop
+        reports = []
         for i in range(1, report_amount + 1):
             report = existing_reports.get(i)
             reports.append({
@@ -390,8 +383,8 @@ class ReportStatusView(APIView):
 
         return Response({
             "student_name": student.full_name,
-            "advisor_name": f"{student.assigned_advisor.first_name} {student.assigned_advisor.last_name}" if student.assigned_advisor else None,
+            "advisor_name": f"{advisor.first_name} {advisor.last_name}",
             "report_amount": report_amount,
+            "submission_interval_days": advisor.report_submission_interval_days,
             "reports": reports
         })
-
