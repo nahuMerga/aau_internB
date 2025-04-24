@@ -47,13 +47,12 @@ class Internship(models.Model):
     def __str__(self):
         return f"{self.student.full_name} - {self.company.name}"
 
-
 class ThirdYearStudentList(models.Model):
     university_id = models.CharField(max_length=20, unique=True, primary_key=True)
     full_name = models.CharField(max_length=100)
     institutional_email = models.EmailField(unique=True)
     assigned_advisor = models.ForeignKey(Advisor, on_delete=models.SET_NULL, null=True, blank=True)
-    
+
     def __str__(self):
         advisor_name = self.assigned_advisor.first_name if self.assigned_advisor else "No Advisor"
         return f"{self.full_name} ({self.university_id}) - Advisor: {advisor_name}"

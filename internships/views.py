@@ -100,9 +100,18 @@ class CompanyListCreateView(generics.ListCreateAPIView):
         if not telegram_id:
             return Response({"error": "telegram_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Create the company first
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         company = serializer.save()
+
+        # Find the student with this telegram_id and update their company field
+        try:
+            student = Student.objects.get(telegram_id=telegram_id)
+            student.company = company
+            student.save()
+        except Student.DoesNotExist:
+            return Response({"error": "Student with this telegram_id not found."}, status=status.HTTP_404_NOT_FOUND)
 
         return Response({
             "message": "Company submitted and linked successfully.",
