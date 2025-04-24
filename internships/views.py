@@ -88,20 +88,20 @@ class AutoAssignAdvisorsView(APIView):
 class CompanyListCreateView(generics.ListCreateAPIView):
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
-    permission_classes = [permissions.AllowAny]  # Or IsAuthenticated if needed
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.IsAdminUser()]
+        return [permissions.AllowAny()]
 
     def create(self, request, *args, **kwargs):
-        # Pass telegram_id along with company data to the serializer
         telegram_id = request.data.get("telegram_id")
 
         if not telegram_id:
             return Response({"error": "telegram_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Use the serializer to validate and create the company
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        # The company will be created and linked to the student in the serializer
         company = serializer.save()
 
         return Response({

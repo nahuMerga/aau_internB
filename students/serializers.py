@@ -21,6 +21,8 @@ class StudentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class InternshipReportSerializer(serializers.ModelSerializer):
+    # Creating a static dropdown selection for report numbers (1 to 10)
+    report_number = serializers.ChoiceField(choices=[(i, f'Report {i}') for i in range(1, 16)], write_only=True)
     telegram_id = serializers.CharField(write_only=True)
     document = serializers.FileField(write_only=True)
 

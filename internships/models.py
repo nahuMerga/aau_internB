@@ -8,8 +8,6 @@ from datetime import datetime
 class Department(models.Model):
     name = models.CharField(max_length=100, unique=True)
     internship_duration_weeks = models.PositiveIntegerField()
-    required_reports_count = models.PositiveIntegerField()
-    report_submission_interval_days = models.PositiveIntegerField(default=15)
     internship_start = models.DateField()
     internship_end = models.DateField()
     
@@ -41,7 +39,7 @@ class Company(models.Model):
     supervisor_email = models.EmailField(null=True, blank=True)
     supervisor_phone = models.CharField(max_length=20, null=True, blank=True)
     position = models.CharField(max_length=20, choices=POSITION_CHOICES, default=OTHERS)
-    description = models.TextField()
+    description = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return self.name
