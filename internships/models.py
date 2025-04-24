@@ -21,16 +21,6 @@ class Department(models.Model):
 
 
 class Company(models.Model):
-    FRONTEND = 'front-end'
-    BACKEND = 'back-end'
-    OTHERS = 'others'
-
-    POSITION_CHOICES = [
-        (FRONTEND, 'Front-End'),
-        (BACKEND, 'Back-End'),
-        (OTHERS, 'Others'),
-    ]
-    
     name = models.CharField(max_length=255)
     email = models.EmailField()
     phone = models.CharField(max_length=20)
@@ -38,7 +28,7 @@ class Company(models.Model):
     supervisor_name = models.CharField(max_length=100)
     supervisor_email = models.EmailField(null=True, blank=True)
     supervisor_phone = models.CharField(max_length=20, null=True, blank=True)
-    position = models.CharField(max_length=20, choices=POSITION_CHOICES, default=OTHERS)
+    position = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
 
     def __str__(self):
@@ -80,7 +70,6 @@ class InternStudentList(models.Model):
     
     def __str__(self):
         return f"{self.student.full_name}'s Internship"  # Customize as needed
-    
 
 
 class InternshipHistory(models.Model):
