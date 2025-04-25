@@ -18,6 +18,7 @@ from django.db import models  # Add this import to fix the error
 from .models import InternshipHistory
 from .serializers import InternshipHistorySerializer
 from django.core.mail import send_mail
+from django.db import IntegrityError, transaction
 
 
 class AdminStudentsListView(generics.ListAPIView):
@@ -98,25 +99,49 @@ class CompanyListCreateView(generics.ListCreateAPIView):
         telegram_id = request.data.get("telegram_id")
 
         if not telegram_id:
-            return Response({"error": "telegram_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "telegram_id is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Create the company first
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        company = serializer.save()
-
-        # Find the student with this telegram_id and update their company field
         try:
-            student = Student.objects.get(telegram_id=telegram_id)
-            student.company = company
-            student.save()
-        except Student.DoesNotExist:
-            return Response({"error": "Student with this telegram_id not found."}, status=status.HTTP_404_NOT_FOUND)
+            with transaction.atomic():
+                # Validate and save company
+                serializer = self.get_serializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                company = serializer.save()
 
-        return Response({
-            "message": "Company submitted and linked successfully.",
-            "company": CompanySerializer(company).data
-        }, status=status.HTTP_201_CREATED)
+                # Link student with the created company
+                try:
+                    student = Student.objects.get(telegram_id=telegram_id)
+                    student.company = company
+                    student.save()
+                except Student.DoesNotExist:
+                    raise ValueError("Student with this telegram_id not found.")
+
+        except IntegrityError as e:
+            return Response(
+                {"error": "Database integrity error. Possibly duplicate entry or student already linked."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except ValueError as ve:
+            return Response(
+                {"error": str(ve)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": "An unexpected error occurred.", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response(
+            {
+                "message": "Company submitted and linked successfully.",
+                "company": CompanySerializer(company).data
+            },
+            status=status.HTTP_201_CREATED
+        )
 
 class UploadStudentExcelView(APIView):
     permission_classes = [permissions.AllowAny]  # Ensure only admin can upload the file
