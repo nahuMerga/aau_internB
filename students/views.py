@@ -181,9 +181,7 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
         if InternshipOfferLetter.objects.filter(student=student, advisor_approved='Approved').exists():
             return Response({"error": "Approved offer letter already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Try to associate the student with the correct company
         try:
-            # In this case, you're assuming the company is linked with the student's telegram_id.
             # Prepare the file upload path
             filename = os.path.basename(uploaded_file.name)
             path = f"offer_letters/{telegram_id}/{filename}"
@@ -191,22 +189,21 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
             # Upload the file and get the file URL
             file_url = upload_to_supabase(uploaded_file, path)
 
-            # Create the offer letter
+            # Create the offer letter without company
             offer_letter = InternshipOfferLetter.objects.create(
                 student=student,
-                company=company,  # Link the company to the student
                 document_url=file_url
             )
 
             return Response({
                 "message": "✅ Offer letter submitted successfully!",
-                "details": f"Company: {company.name}",
                 "status": "Pending advisor approval",
                 "document_url": file_url
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         
 
 class InternshipReportUploadView(generics.CreateAPIView):

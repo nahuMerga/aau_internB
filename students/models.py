@@ -68,7 +68,7 @@ class InternshipOfferLetter(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)  # ✅ Add this line
     
     def __str__(self):
-        return f"Offer Letter for {self.student.full_name} at {self.company} - Status: {self.advisor_approved}"
+        return f"Offer Letter for {self.student.full_name}  - Status: {self.advisor_approved}"
     
 
 class InternshipReport(models.Model):
