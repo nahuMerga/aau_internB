@@ -184,10 +184,6 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
         # Try to associate the student with the correct company
         try:
             # In this case, you're assuming the company is linked with the student's telegram_id.
-            company = student.company  # Adjust this logic if needed
-            if not company:
-                return Response({"error": "Company not found for the student"}, status=status.HTTP_404_NOT_FOUND)
-
             # Prepare the file upload path
             filename = os.path.basename(uploaded_file.name)
             path = f"offer_letters/{telegram_id}/{filename}"
