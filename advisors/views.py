@@ -192,7 +192,7 @@ class StudentDetailView(APIView):
                 "advisor_approved": offer_letter.advisor_approved,
                 "approval_date": offer_letter.approval_date,
                 "submission_date": offer_letter.submission_date,
-                "company": CompanySerializer(offer_letter.company).data if offer_letter.company else None,  # Serialize the company
+                # Removed the company field as it's no longer in the model
             }
         else:
             student_data["internship_offer_letter"] = None
@@ -211,6 +211,7 @@ class StudentDetailView(APIView):
         student_data["department"] = student.department.name  # Include department name only
 
         return Response(student_data, status=status.HTTP_200_OK)
+
 
 
 
