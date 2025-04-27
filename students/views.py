@@ -337,12 +337,12 @@ class OfferLetterStatusView(APIView):
             "offer_letter": {
                 "uploaded": bool(offer),
                 "approved": offer.advisor_approved if offer else False,
-                "company": offer.company.name if offer else None,
                 "document": offer.document_url if offer else None  # ✅ Use public Supabase URL
             }
         }
 
         return Response(response_data)
+
 
 
 
