@@ -21,6 +21,7 @@ class Department(models.Model):
 
 
 class Company(models.Model):
+    telegram_id = models.CharField(max_length=100)
     name = models.CharField(max_length=255)
     email = models.EmailField()
     phone = models.CharField(max_length=20)
@@ -30,6 +31,8 @@ class Company(models.Model):
     supervisor_phone = models.CharField(max_length=20, null=True, blank=True)
     position = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
+
+
 
     def __str__(self):
         return self.name

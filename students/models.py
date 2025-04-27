@@ -57,7 +57,6 @@ class Student(models.Model):
 
 class InternshipOfferLetter(models.Model):
     student = models.OneToOneField(Student, on_delete=models.CASCADE)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE)
     submission_date = models.DateTimeField(auto_now_add=True)
     document = models.FileField(upload_to='offer_letters/', null=True, blank=True)
     document_url = models.URLField(blank=True, null=True)

@@ -106,28 +106,15 @@ class CompanyListCreateView(generics.ListCreateAPIView):
 
         try:
             with transaction.atomic():
-                # Validate and save company
+                # Validate and save company directly
                 serializer = self.get_serializer(data=request.data)
                 serializer.is_valid(raise_exception=True)
                 company = serializer.save()
 
-                # Link student with the created company
-                try:
-                    student = Student.objects.get(telegram_id=telegram_id)
-                    student.company = company
-                    student.save()
-                except Student.DoesNotExist:
-                    raise ValueError("Student with this telegram_id not found.")
-
-        except IntegrityError as e:
+        except IntegrityError:
             return Response(
-                {"error": "Database integrity error. Possibly duplicate entry or student already linked."},
+                {"error": "Database integrity error. Possibly duplicate entry."},
                 status=status.HTTP_400_BAD_REQUEST
-            )
-        except ValueError as ve:
-            return Response(
-                {"error": str(ve)},
-                status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
             return Response(
@@ -137,7 +124,7 @@ class CompanyListCreateView(generics.ListCreateAPIView):
 
         return Response(
             {
-                "message": "Company submitted and linked successfully.",
+                "message": "Company submitted successfully.",
                 "company": CompanySerializer(company).data
             },
             status=status.HTTP_201_CREATED
