@@ -103,6 +103,13 @@ class CompanyListCreateView(generics.ListCreateAPIView):
                 {"error": "telegram_id is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        # Check if a company with the same telegram_id already exists
+        if Company.objects.filter(telegram_id=telegram_id).exists():
+            return Response(
+                {"error": "A company with this telegram_id has already been submitted."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             with transaction.atomic():
