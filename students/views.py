@@ -226,10 +226,6 @@ class InternshipReportUploadView(generics.CreateAPIView):
         if not advisor:
             return Response({"error": "No advisor assigned to this student"}, status=status.HTTP_400_BAD_REQUEST)
 
-        offer_letter = InternshipOfferLetter.objects.filter(student=student).first()
-        # if not offer_letter or offer_letter.advisor_approved != 'Approved':
-        #     return Response({"error": "Advisor approval required before submitting reports."}, status=status.HTTP_400_BAD_REQUEST)
-
         # ✅ Get advisor-configured settings
         required_reports = advisor.number_of_expected_reports
         interval_days = advisor.report_submission_interval_days
@@ -283,17 +279,19 @@ class InternshipReportUploadView(generics.CreateAPIView):
                 "message": f"📘 Report {report_number} submitted successfully!",
                 "progress": progress,
                 "remaining_reports": remaining,
-                "company": offer_letter.company.name if offer_letter else None,
-                "document_url": file_url
+                "document_url": file_url  # ✅ No company here anymore
             }
 
             if report_number == required_reports:
                 student.status = "Completed"
                 student.save()
 
+                # ✅ Fetch the company properly
+                company = Company.objects.filter(telegram_id=telegram_id).first()
+
                 InternshipHistory.objects.create(
                     student=student,
-                    company=offer_letter.company,
+                    company=company,
                     start_date=student.start_date,
                     end_date=today
                 )
@@ -314,6 +312,8 @@ class InternshipReportUploadView(generics.CreateAPIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
         
 
 class OfferLetterStatusView(APIView):
