@@ -19,6 +19,8 @@ from .models import InternshipHistory
 from .serializers import InternshipHistorySerializer
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
+from background_task import background
+
 
 
 class AdminStudentsListView(generics.ListAPIView):
@@ -208,8 +210,36 @@ class CompanyListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+@background(schedule=1)
+def notify_advisor_async(advisor_id):
+    advisor = Advisor.objects.select_related('user').get(id=advisor_id)
+    students = ThirdYearStudentList.objects.filter(assigned_advisor=advisor)
+
+    if not students.exists():
+        return
+
+    student_lines = [f"{s.full_name} (ID: {s.university_id})" for s in students]
+    student_list_text = "\n".join(student_lines)
+
+    try:
+        send_mail(
+            subject="AAU Internship – Your Assigned Students",
+            message=(
+                f"Dear {advisor.first_name},\n\n"
+                f"You have been assigned the following students:\n\n"
+                f"{student_list_text}\n\n"
+                f"Best regards,\nAAU Internship Team"
+            ),
+            from_email="aau57.sis@gmail.com",
+            recipient_list=[advisor.user.email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        print(f"Email failed to {advisor.user.email}: {e}")
+
+
 class UploadStudentExcelView(APIView):
-    permission_classes = [permissions.AllowAny]  # Ensure only admin can upload the file
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request, format=None):
         excel_file = request.FILES.get('file')
@@ -217,35 +247,27 @@ class UploadStudentExcelView(APIView):
             return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Read the Excel file into a pandas dataframe
             df = pd.read_excel(excel_file)
-
             required_columns = {'university_id', 'full_name'}
-            if not required_columns.issubset(set(df.columns)):
+            if not required_columns.issubset(df.columns):
                 return Response({
-                    "error": f"Missing required columns. Required: {required_columns}"
+                    "error": f"Missing columns. Required: {required_columns}"
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             created_students = []
-
-            # Get a list of all advisors and their current load
             advisors = Advisor.objects.all().annotate(current_load=models.Count('thirdyearstudentlist'))
 
             for _, row in df.iterrows():
                 university_id = str(row['university_id']).strip()[:20]
                 full_name = str(row['full_name']).strip()
 
-                if len(university_id) > 20:
-                    return Response({"error": f"University ID '{university_id}' is too long. Max length is 20 characters."}, status=status.HTTP_400_BAD_REQUEST)
-
                 if ThirdYearStudentList.objects.filter(university_id=university_id).exists():
                     continue
 
                 email = generate_email(full_name, university_id)
                 advisor = get_next_available_advisor()
-
                 if not advisor:
-                    return Response({"error": "No available advisor found."}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"error": "No available advisor."}, status=status.HTTP_400_BAD_REQUEST)
 
                 student = ThirdYearStudentList.objects.create(
                     university_id=university_id,
@@ -258,36 +280,12 @@ class UploadStudentExcelView(APIView):
                     "university_id": university_id,
                     "full_name": full_name,
                     "email": email,
-                    "advisor": advisor.first_name if advisor else None
+                    "advisor": advisor.first_name
                 })
 
-            # ✅ Notify each advisor by email (use advisor.user.email)
-            for advisor in Advisor.objects.select_related('user'):
-                students = ThirdYearStudentList.objects.filter(assigned_advisor=advisor)
-                if not students.exists():
-                    continue
-
-                student_lines = [
-                    f"{s.full_name} (ID: {s.university_id})" for s in students
-                ]
-                student_list_text = "\n".join(student_lines)
-
-                try:
-                    send_mail(
-                        subject="AAU Internship – Your Assigned Students",
-                        message=(
-                            f"Dear {advisor.first_name},\n\n"
-                            f"You have been assigned the following students for internship supervision:\n\n"
-                            f"{student_list_text}\n\n"
-                            f"Please prepare to guide them during the internship period.\n\n"
-                            f"Best regards,\nAAU Internship Team"
-                        ),
-                        from_email="aau57.sis@gmail.com",
-                        recipient_list=[advisor.user.email],  # ✅ Fixed here
-                        fail_silently=False,
-                    )
-                except Exception as e:
-                    print(f"Failed to email advisor {advisor.user.email}: {str(e)}")
+            # ✅ Call background email task here
+            for advisor in Advisor.objects.all():
+                notify_advisor_async(advisor.id)
 
             return Response({
                 "message": f"{len(created_students)} students uploaded successfully.",
@@ -296,6 +294,7 @@ class UploadStudentExcelView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class InternshipHistoryListView(generics.ListAPIView):
     serializer_class = InternshipHistorySerializer

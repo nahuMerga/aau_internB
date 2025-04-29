@@ -14,3 +14,5 @@ python-dotenv
 supabase
 pandas
 openpyxl
+django-background-tasks
+
