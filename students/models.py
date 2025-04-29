@@ -60,12 +60,15 @@ class InternshipOfferLetter(models.Model):
     submission_date = models.DateTimeField(auto_now_add=True)
     document = models.FileField(upload_to='offer_letters/', null=True, blank=True)
     document_url = models.URLField(blank=True, null=True)
+    company_name = models.CharField(max_length=255, null=True, blank=True)  # ✅ Add this line
     advisor_approved = models.CharField(
-        max_length=10, choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')],
+        max_length=10,
+        choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')],
         default='Pending'
     )
     approval_date = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)  # ✅ Add this line
+    created_at = models.DateTimeField(auto_now_add=True)
+
     
     def __str__(self):
         return f"Offer Letter for {self.student.full_name}  - Status: {self.advisor_approved}"

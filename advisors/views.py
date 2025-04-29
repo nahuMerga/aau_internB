@@ -17,6 +17,13 @@ from django.http import Http404
 from django.utils import timezone
 from datetime import timedelta
 import requests  # for making HTTP requests
+import pandas as pd
+import random
+import string
+from django.core.mail import send_mail
+from rest_framework.exceptions import ValidationError
+from django.contrib.auth import password_validation
+
 
 
 class UpdateAdvisorProfileView(APIView):
@@ -36,45 +43,115 @@ class UpdateAdvisorProfileView(APIView):
     def put(self, request, *args, **kwargs):
         advisor = self.get_object(request.user)
 
+        # Check if username needs to be updated
+        username = request.data.get('username', None)
+        password = request.data.get('password', None)
+
+        if username:
+            # Ensure the new username is unique and valid
+            if User.objects.filter(username=username).exists():
+                return Response({"error": "Username already exists."}, status=status.HTTP_400_BAD_REQUEST)
+            advisor.user.username = username
+
+        # Handle password change if it's provided in the request
+        if password:
+            # Validate the password using Django's password validation system
+            try:
+                password_validation.validate_password(password)
+            except ValidationError as e:
+                return Response({"error": e.messages}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Set the new password securely
+            advisor.user.set_password(password)
+
+        # Update other profile information
         serializer = AdvisorProfileSerializer(advisor, data=request.data, partial=True)
         if serializer.is_valid():
+            # Save the changes, including the username and password update if any
+            advisor.user.save()  # Save the user object (to persist username change)
+            advisor.user.set_password(password) if password else None  # Update password if present
             serializer.save()
+
+            # If password is changed, the user needs to be logged out and reauthenticated
+            if password:
+                return Response({"message": "Profile updated. Please log in with your new password."}, status=status.HTTP_200_OK)
+
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# Utility function to generate a random password
+def generate_password():
+    """Generate a random password"""
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+
+# View to handle advisor bulk registration from Excel
 class AdvisorRegistrationView(APIView):
-    permission_classes = [AllowAny]
-
+    permission_classes = [AllowAny]  # Admin will use this API
+    
     def post(self, request):
-        """
-        Register a new user and create an advisor profile, then return JWT token
-        """
-        # First, serialize and create the user
-        user_serializer = UserSerializer(data=request.data)
-        if user_serializer.is_valid():
-            user = user_serializer.save()  # Save the user instance
+        excel_file = request.FILES.get('file')
+        if not excel_file:
+            return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Now, create the advisor profile with the user instance
-            advisor_data = {
-                'user': user,  # Link the advisor to the user
-                'first_name': request.data.get('first_name'),
-                'last_name': request.data.get('last_name'),
-                'phone_number': request.data.get('phone_number')
-            }
-            
-            advisor = Advisor.objects.create(**advisor_data) 
-            advisor.save()
+        try:
+            # Read the Excel file into a pandas dataframe
+            df = pd.read_excel(excel_file)
 
-            refresh = RefreshToken.for_user(user) 
-            access_token = refresh.access_token  
+            # Check if the necessary columns are present in the file
+            required_columns = {'advisor_name', 'email'}
+            if not required_columns.issubset(set(df.columns)):
+                return Response({
+                    "error": f"Missing required columns. Required: {required_columns}"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            failed_emails = []
+            successful_emails = []
+
+            # Iterate over the rows in the Excel file
+            for _, row in df.iterrows():
+                advisor_name = str(row['advisor_name']).strip()
+                email = str(row['email']).strip()
+
+                # Ensure the email is valid and doesn't already exist in the system
+                if User.objects.filter(email=email).exists():
+                    failed_emails.append(email)
+                    continue
+                
+                username = advisor_name.replace(" ", "").lower()  # Simplified username from name
+                password = generate_password()  # Generate a random password
+
+                try:
+                    # Create the user
+                    user = User.objects.create_user(username=username, email=email, password=password)
+                    user.is_active = True  # Make the user active
+                    user.save()
+
+                    # Create the advisor profile in the Advisor model
+                    advisor = Advisor.objects.create(user=user)
+                    # Send an email with the generated credentials to the advisor
+                    send_mail(
+                        subject="Your Advisor Account Credentials",
+                        message=f"Hello {advisor_name},\n\nYour account has been created.\nUsername: {username}\nPassword: {password}\n\nPlease log in and update your password immediately.",
+                        from_email="admin@yourdomain.com",  # Update with your real email
+                        recipient_list=[email],
+                        fail_silently=False,
+                    )
+
+                    successful_emails.append(email)
+
+                except Exception as e:
+                    failed_emails.append(email)
+                    print(f"Error creating advisor for {email}: {str(e)}")
 
             return Response({
-                'refresh': str(refresh),
-                'access': str(access_token)
+                'successful_emails': successful_emails,
+                'failed_emails': failed_emails,
             }, status=status.HTTP_201_CREATED)
-        
-        return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        
 class LoginView(APIView):
     permission_classes = [AllowAny]
     def post(self, request):
@@ -143,6 +220,7 @@ class AdvisorStudentsView(APIView):
                 "start_date": student.start_date,
                 "end_date": student.end_date,
                 "department": student.department.name,
+                "company_name": offer_letter.company_name if offer_letter else None,  # ✅ Add this line
                 "offer_letter": InternshipOfferLetterReadSerializer(offer_letter).data if offer_letter else None,
                 "internship_reports": InternshipReportReadSerializer(reports, many=True).data
             })
@@ -188,6 +266,7 @@ class StudentDetailView(APIView):
         # Handle internship offer letter details
         if offer_letter:
             student_data["internship_offer_letter"] = {
+                "company_name": offer_letter.company_name if offer_letter else None,  # ✅ Add this line
                 "document_url": offer_letter.document_url,  # Add URL for the offer letter document
                 "advisor_approved": offer_letter.advisor_approved,
                 "approval_date": offer_letter.approval_date,

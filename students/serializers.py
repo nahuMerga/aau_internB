@@ -35,7 +35,7 @@ class InternshipOfferLetterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InternshipOfferLetter
-        fields = ['telegram_id', 'document']
+        fields = ['telegram_id', 'company_name', 'document']
         
 # Serializer for reading internship reports
 class InternshipReportReadSerializer(serializers.ModelSerializer):

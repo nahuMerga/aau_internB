@@ -163,6 +163,7 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
         # Extract the telegram_id and document from the request
         telegram_id = serializer.validated_data.get('telegram_id')
         uploaded_file = request.FILES.get('document')
+        company_name = request.data.get('company_name')  # ✅ Extract company_name from request
 
         # Ensure the file is present
         if not uploaded_file:
@@ -189,10 +190,11 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
             # Upload the file and get the file URL
             file_url = upload_to_supabase(uploaded_file, path)
 
-            # Create the offer letter without company
+            # Create the offer letter with optional company_name
             offer_letter = InternshipOfferLetter.objects.create(
                 student=student,
-                document_url=file_url
+                document_url=file_url,
+                company_name=company_name  # ✅ Save company name
             )
 
             return Response({

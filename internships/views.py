@@ -5,7 +5,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from apscheduler.schedulers.background import BackgroundScheduler
-from students.models import Student
+from students.models import Student, InternshipOfferLetter
 from advisors.models import Advisor
 from students.serializers import StudentSerializer, InternshipOfferLetterSerializer, InternshipReportSerializer
 from advisors.serializers import AdvisorSerializer
@@ -31,19 +31,24 @@ class AdminStudentsListView(generics.ListAPIView):
 
         # Modify the queryset to include only necessary department information
         for student in queryset:
-            # Manually add the department name to each student object
             student.department_name = student.department.name if student.department else None
 
         return queryset
 
     def list(self, request, *args, **kwargs):
-        # Call the original list method to get the serialized data
         response = super().list(request, *args, **kwargs)
 
-        # Modify the response to include only the department name
         for student_data in response.data:
             # Ensure department data is overridden to only show the name
             student_data['department'] = student_data.get('department', {}).get('name', None)
+
+            # 🔽 Add company_name safely
+            student_id = student_data.get('id')
+            try:
+                offer_letter = InternshipOfferLetter.objects.get(student_id=student_id)
+                student_data['company_name'] = offer_letter.company_name
+            except InternshipOfferLetter.DoesNotExist:
+                student_data['company_name'] = None
 
         return response
 
