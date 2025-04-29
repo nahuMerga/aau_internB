@@ -36,7 +36,6 @@ class StudentRegistrationView(APIView):
                 "error": "OTP verification failed or locked."
             }, status=status.HTTP_400_BAD_REQUEST)
             
-        # ❗ Check if student is already registered with verified OTP
         existing_student = Student.objects.filter(university_id=university_id, otp_verified=True).first()
         if existing_student:
             return Response({
@@ -44,21 +43,20 @@ class StudentRegistrationView(APIView):
                 "OTPVerified": True
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # ✅ Get the latest department (or filter by logic you prefer)
         department = Department.objects.order_by("-internship_end").first()
         if not department or department.internship_start >= department.internship_end:
             return Response({
                 "error": "The internship department calendar is invalid."
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # ✅ Get third-year student record
+    
         third_year_student = ThirdYearStudentList.objects.filter(university_id=university_id).first()
         if not third_year_student:
             return Response({
                 "error": "Student not found in third-year database."
             }, status=status.HTTP_404_NOT_FOUND)
 
-        # ✅ Create or update Student
+
         student, _ = Student.objects.update_or_create(
             university_id=third_year_student.university_id,
             defaults={
@@ -73,7 +71,6 @@ class StudentRegistrationView(APIView):
             }
         )
 
-        # ✅ Add to InternStudentList
         InternStudentList.objects.update_or_create(
             student=third_year_student
         )
@@ -106,24 +103,6 @@ class StudentRegistrationView(APIView):
         otp_entry.delete()
         return True
         
-        
-# def upload_to_supabase(file, path_in_bucket):
-#     url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{path_in_bucket}"
-
-#     headers = {
-#         "apikey": SUPABASE_API_KEY,
-#         "Authorization": f"Bearer {SUPABASE_API_KEY}",
-#         "Content-Type": "application/octet-stream",
-#         "x-upsert": "true"
-#     }
-
-#     response = requests.post(url, headers=headers, data=file.read())
-
-#     if response.status_code in [200, 201]:
-#         return f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/{path_in_bucket}"
-#     else:
-#         raise Exception(f"Upload failed: {response.status_code} - {response.text}")
-
 
 def upload_to_supabase(file, path_in_bucket):
     SUPABASE_URL = "https://cavdgitwbubdtqdctvlz.supabase.co"
@@ -139,20 +118,19 @@ def upload_to_supabase(file, path_in_bucket):
     }
 
     try:
-        # Read file content in binary mode
         file_content = file.read()
         
-        # Upload raw bytes with correct Content-Type
-        response = requests.put(  # Use PUT instead of POST for better reliability
+       
+        response = requests.put( 
             upload_url,
             headers=headers,
-            data=file_content  # Send raw binary data
+            data=file_content  
         )
 
         if response.status_code not in [200, 201]:
             raise Exception(f"Upload failed: {response.status_code} - {response.text}")
 
-        # Return public URL
+        
         return f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/{path_in_bucket}"
 
     except Exception as e:
@@ -189,39 +167,36 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Extract the telegram_id and document from the request
         telegram_id = serializer.validated_data.get('telegram_id')
         uploaded_file = request.FILES.get('document')
         company_name = request.data.get('company_name')  # ✅ Extract company_name from request
 
-        # Ensure the file is present
+
         if not uploaded_file:
             return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Find the student using the telegram_id
         student = Student.objects.filter(telegram_id=telegram_id).first()
         if not student:
             return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if the student has an assigned advisor
         if not student.assigned_advisor:
             return Response({"error": "Advisor not assigned yet"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Ensure the student doesn't already have an approved offer letter
+    
         if InternshipOfferLetter.objects.filter(student=student, advisor_approved='Approved').exists():
             return Response({"error": "Approved offer letter already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Validate the file format and remove spaces from the filename
+            
             filename = validate_file_format(uploaded_file)
 
-            # Prepare the file upload path
+          
             path = f"offer_letters/{telegram_id}/{filename}"
 
-            # Upload the file and get the file URL
+           
             file_url = upload_to_supabase(uploaded_file, path)
 
-            # Create the offer letter with optional company_name
+          
             offer_letter = InternshipOfferLetter.objects.create(
                 student=student,
                 document_url=file_url,
@@ -252,7 +227,7 @@ class InternshipReportUploadView(generics.CreateAPIView):
         report_number = serializer.validated_data.get('report_number')
         uploaded_file = request.FILES.get('document')
 
-        # Ensure the file is present
+       
         if not uploaded_file:
             return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -264,7 +239,7 @@ class InternshipReportUploadView(generics.CreateAPIView):
         if not advisor:
             return Response({"error": "No advisor assigned to this student"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # ✅ Get advisor-configured settings
+       
         required_reports = advisor.number_of_expected_reports
         interval_days = advisor.report_submission_interval_days
 
@@ -300,10 +275,10 @@ class InternshipReportUploadView(generics.CreateAPIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Validate the file format and remove spaces from the filename
+           
             filename = validate_file_format(uploaded_file)
 
-            # Prepare the file upload path
+          
             path = f"reports/{telegram_id}/{filename}"
             file_url = upload_to_supabase(uploaded_file, path)
 
@@ -320,14 +295,14 @@ class InternshipReportUploadView(generics.CreateAPIView):
                 "message": f"📘 Report {report_number} submitted successfully!",
                 "progress": progress,
                 "remaining_reports": remaining,
-                "document_url": file_url  # ✅ No company here anymore
+                "document_url": file_url 
             }
 
             if report_number == required_reports:
                 student.status = "Completed"
                 student.save()
 
-                # ✅ Fetch the company properly
+               
                 company = Company.objects.filter(telegram_id=telegram_id).first()
 
                 InternshipHistory.objects.create(
@@ -387,7 +362,7 @@ class OfferLetterStatusView(APIView):
             "offer_letter": {
                 "uploaded": bool(offer),
                 "approved": offer.advisor_approved if offer else False,
-                "document": offer.document_url if offer else None  # ✅ Use public Supabase URL
+                "document": offer.document_url if offer else None 
             }
         }
 

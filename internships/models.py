@@ -1,9 +1,7 @@
 from django.db import models
-# from students.models import Student
 from advisors.models import Advisor
 from django.apps import apps
 from datetime import datetime
-# from students.models import Student
 
 class Department(models.Model):
     name = models.CharField(max_length=100, unique=True)

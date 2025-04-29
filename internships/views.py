@@ -31,7 +31,6 @@ class AdminStudentsListView(generics.ListAPIView):
     def get_queryset(self):
         queryset = Student.objects.all()
 
-        # Modify the queryset to include only necessary department information
         for student in queryset:
             student.department_name = student.department.name if student.department else None
 
@@ -41,10 +40,8 @@ class AdminStudentsListView(generics.ListAPIView):
         response = super().list(request, *args, **kwargs)
 
         for student_data in response.data:
-            # Ensure department data is overridden to only show the name
             student_data['department'] = student_data.get('department', {}).get('name', None)
 
-            # 🔽 Add company_name safely
             student_id = student_data.get('id')
             try:
                 offer_letter = InternshipOfferLetter.objects.get(student_id=student_id)
@@ -80,7 +77,6 @@ class AssignAdvisorView(APIView):
 
 def assign_students_to_advisors():
     """Helper function for auto-assigning students to advisors"""
-    # Implement your assignment logic here
     pass
 
 class AutoAssignAdvisorsView(APIView):
@@ -109,17 +105,15 @@ class CompanyListCreateView(generics.ListCreateAPIView):
             return self.list(request, *args, **kwargs)
             
         try:
-            # First check if company exists
             company = Company.objects.get(telegram_id=telegram_id)
             return Response({
                 "exists": True,
                 "survey_completed": True,
-                "can_fill_survey": False,  # Already filled
+                "can_fill_survey": False,
                 "company": CompanySerializer(company).data,
                 "message": "Company survey already submitted"
             }, status=status.HTTP_200_OK)
         except Company.DoesNotExist:
-            # Company doesn't exist, check if student can submit
             try:
                 student = Student.objects.get(telegram_id=telegram_id)
                 report3_exists = InternshipReport.objects.filter(
@@ -159,14 +153,12 @@ class CompanyListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if company already exists
         if Company.objects.filter(telegram_id=telegram_id).exists():
             return Response(
                 {"error": "A company with this telegram_id has already been submitted."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Check if Report 3 exists for this student
         try:
             student = Student.objects.get(telegram_id=telegram_id)
             report_exists = InternshipReport.objects.filter(
@@ -283,7 +275,6 @@ class UploadStudentExcelView(APIView):
                     "advisor": advisor.first_name
                 })
 
-            # ✅ Call background email task here
             for advisor in Advisor.objects.all():
                 notify_advisor_async(advisor.id)
 
@@ -298,15 +289,12 @@ class UploadStudentExcelView(APIView):
 
 class InternshipHistoryListView(generics.ListAPIView):
     serializer_class = InternshipHistorySerializer
-    permission_classes = [permissions.IsAdminUser] # Admin permission only
+    permission_classes = [permissions.IsAdminUser] 
     
     def get_queryset(self):
-        # Get 'year' from query params, or default to None if not provided
         year = self.request.query_params.get('year', None)
         
-        # Filter by year if it's provided
         if year:
             return InternshipHistory.objects.filter(year=year)
         
-        # If no year is provided, return all records
         return InternshipHistory.objects.all()

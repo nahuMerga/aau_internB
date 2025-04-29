@@ -21,7 +21,6 @@ class StudentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class InternshipReportSerializer(serializers.ModelSerializer):
-    # Creating a static dropdown selection for report numbers (1 to 10)
     report_number = serializers.ChoiceField(choices=[(i, f'Report {i}') for i in range(1, 16)], write_only=True)
     telegram_id = serializers.CharField(write_only=True)
     document = serializers.FileField(write_only=True)
@@ -37,13 +36,12 @@ class InternshipOfferLetterSerializer(serializers.ModelSerializer):
         model = InternshipOfferLetter
         fields = ['telegram_id', 'company_name', 'document']
         
-# Serializer for reading internship reports
 class InternshipReportReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = InternshipReport
         fields = [ 'report_number', 'document_url', 'submission_date', 'created_at']
 
-# Serializer for reading offer letters
+
 class InternshipOfferLetterReadSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(source='company.name', read_only=True)
 

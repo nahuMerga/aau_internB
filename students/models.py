@@ -36,7 +36,6 @@ class Student(models.Model):
     def save(self, *args, **kwargs):
         if not self.assigned_advisor:
             try:
-                # Lazy import to avoid circular import
                 from internships.models import ThirdYearStudentList
                 
                 third_year_student = ThirdYearStudentList.objects.get(university_id=self.university_id)
@@ -47,11 +46,9 @@ class Student(models.Model):
             except ThirdYearStudentList.DoesNotExist:
                 print(f"⚠️ No third-year student found with university_id {self.university_id}")
         
-        # Ensure department is assigned properly (if it's not already assigned)
         if isinstance(self.department, str):
             self.department = Department.objects.get(name=self.department)  # Ensure this is a Department object or ID
 
-        # Save the instance
         super(Student, self).save(*args, **kwargs)
 
 
@@ -81,13 +78,13 @@ class InternshipReport(models.Model):
     document_url = models.URLField(blank=True, null=True)
     submission_date = models.DateTimeField(auto_now_add=True)
     report_number = models.IntegerField(choices=REPORT_CHOICES)
-    created_at = models.DateTimeField(auto_now_add=True)  # ✅ Add this line
+    created_at = models.DateTimeField(auto_now_add=True) 
 
 
     class Meta:
         ordering = ['-submission_date']
         get_latest_by = 'submission_date'
-        unique_together = ['student', 'report_number']  # Ensure no duplicate report numbers per student
+        unique_together = ['student', 'report_number'] 
         
     def __str__(self):
         return f"Report {self.report_number} - {self.student.full_name}"
