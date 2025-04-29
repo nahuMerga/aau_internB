@@ -161,15 +161,25 @@ def upload_to_supabase(file, path_in_bucket):
 
 
 def validate_file_format(file):
-    valid_formats = ['pdf', 'docx', 'doc']  # Modify as needed
+    """Improved file validation with better error messages"""
+    if not file:
+        raise ValidationError("Please select a file to upload.")
+    
+    if file.size == 0:
+        raise ValidationError("The file you uploaded is empty. Please upload a valid document.")
+    
+    valid_formats = ['pdf', 'docx', 'doc']
     file_extension = file.name.split('.')[-1].lower()
-
+    
+    if not file_extension:
+        raise ValidationError("The file has no extension. Please upload a PDF or Word document.")
+    
     if file_extension not in valid_formats:
-        raise ValidationError(f"Invalid file format. Allowed formats are: {', '.join(valid_formats)}.")
-
-    # Remove spaces from filename
-    filename = file.name.replace(" ", "")
-    return filename
+        raise ValidationError(
+            "Unsupported file type. "
+            "Please upload your report in one of these formats: "
+            "PDF (.pdf), Word (.docx or .doc)."
+        )
 
 class InternshipOfferLetterUploadView(generics.CreateAPIView):
     serializer_class = InternshipOfferLetterSerializer
@@ -342,9 +352,17 @@ class InternshipReportUploadView(generics.CreateAPIView):
             return Response(response_data, status=status.HTTP_201_CREATED)
 
         except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "error": "Document upload failed",
+                "details": str(e),
+                "solution": "Please check your file and try again with a valid document"
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({
+                "error": "Unexpected error occurred",
+                "details": "We couldn't process your document upload",
+                "solution": "Please try again later or contact support"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         
 
