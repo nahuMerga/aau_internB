@@ -107,18 +107,46 @@ class CompanyListCreateView(generics.ListCreateAPIView):
             return self.list(request, *args, **kwargs)
             
         try:
+            # First check if company exists
             company = Company.objects.get(telegram_id=telegram_id)
             return Response({
                 "exists": True,
                 "survey_completed": True,
-                "company": CompanySerializer(company).data
+                "can_fill_survey": False,  # Already filled
+                "company": CompanySerializer(company).data,
+                "message": "Company survey already submitted"
             }, status=status.HTTP_200_OK)
         except Company.DoesNotExist:
-            return Response({
-                "exists": False,
-                "survey_completed": False,
-                "message": "No company found with this telegram ID"
-            }, status=status.HTTP_404_NOT_FOUND)
+            # Company doesn't exist, check if student can submit
+            try:
+                student = Student.objects.get(telegram_id=telegram_id)
+                report3_exists = InternshipReport.objects.filter(
+                    student=student,
+                    report_number=3
+                ).exists()
+                
+                return Response({
+                    "exists": False,
+                    "survey_completed": False,
+                    "can_fill_survey": report3_exists,
+                    "message": "Company survey not submitted yet",
+                    "requirements_met": {
+                        "report3_submitted": report3_exists,
+                        "missing_requirements": [] if report3_exists else ["Report 3"]
+                    }
+                }, status=status.HTTP_200_OK)
+                
+            except Student.DoesNotExist:
+                return Response({
+                    "exists": False,
+                    "survey_completed": False,
+                    "can_fill_survey": False,
+                    "message": "Student not found with this telegram ID",
+                    "requirements_met": {
+                        "report3_submitted": False,
+                        "missing_requirements": ["Student record"]
+                    }
+                }, status=status.HTTP_404_NOT_FOUND)
 
     def create(self, request, *args, **kwargs):
         telegram_id = request.data.get("telegram_id")
