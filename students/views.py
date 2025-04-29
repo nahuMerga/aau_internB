@@ -35,6 +35,14 @@ class StudentRegistrationView(APIView):
                 "OTPVerified": False,
                 "error": "OTP verification failed or locked."
             }, status=status.HTTP_400_BAD_REQUEST)
+            
+        # ❗ Check if student is already registered with verified OTP
+        existing_student = Student.objects.filter(university_id=university_id, otp_verified=True).first()
+        if existing_student:
+            return Response({
+                "error": "You have already registered and verified your account.",
+                "OTPVerified": True
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         # ✅ Get the latest department (or filter by logic you prefer)
         department = Department.objects.order_by("-internship_end").first()
@@ -152,6 +160,17 @@ def upload_to_supabase(file, path_in_bucket):
 
 
 
+def validate_file_format(file):
+    valid_formats = ['pdf', 'docx', 'doc']  # Modify as needed
+    file_extension = file.name.split('.')[-1].lower()
+
+    if file_extension not in valid_formats:
+        raise ValidationError(f"Invalid file format. Allowed formats are: {', '.join(valid_formats)}.")
+
+    # Remove spaces from filename
+    filename = file.name.replace(" ", "")
+    return filename
+
 class InternshipOfferLetterUploadView(generics.CreateAPIView):
     serializer_class = InternshipOfferLetterSerializer
     permission_classes = [AllowAny]
@@ -183,8 +202,10 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
             return Response({"error": "Approved offer letter already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            # Validate the file format and remove spaces from the filename
+            filename = validate_file_format(uploaded_file)
+
             # Prepare the file upload path
-            filename = os.path.basename(uploaded_file.name)
             path = f"offer_letters/{telegram_id}/{filename}"
 
             # Upload the file and get the file URL
@@ -203,9 +224,10 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
                 "document_url": file_url
             }, status=status.HTTP_201_CREATED)
 
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
         
 
 class InternshipReportUploadView(generics.CreateAPIView):
@@ -219,6 +241,10 @@ class InternshipReportUploadView(generics.CreateAPIView):
         telegram_id = serializer.validated_data.get('telegram_id')
         report_number = serializer.validated_data.get('report_number')
         uploaded_file = request.FILES.get('document')
+
+        # Ensure the file is present
+        if not uploaded_file:
+            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         student = Student.objects.filter(telegram_id=telegram_id).first()
         if not student:
@@ -264,7 +290,10 @@ class InternshipReportUploadView(generics.CreateAPIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            filename = os.path.basename(uploaded_file.name)
+            # Validate the file format and remove spaces from the filename
+            filename = validate_file_format(uploaded_file)
+
+            # Prepare the file upload path
             path = f"reports/{telegram_id}/{filename}"
             file_url = upload_to_supabase(uploaded_file, path)
 
@@ -312,9 +341,10 @@ class InternshipReportUploadView(generics.CreateAPIView):
 
             return Response(response_data, status=status.HTTP_201_CREATED)
 
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
         
 
