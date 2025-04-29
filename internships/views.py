@@ -96,9 +96,32 @@ class CompanyListCreateView(generics.ListCreateAPIView):
     serializer_class = CompanySerializer
 
     def get_permissions(self):
-        if self.request.method == 'GET':
+        # GET list (admin only) and single item (anyone)
+        if self.request.method == 'GET' and 'telegram_id' not in self.request.query_params:
             return [permissions.IsAdminUser()]
         return [permissions.AllowAny()]
+
+    def get(self, request, *args, **kwargs):
+        telegram_id = request.query_params.get('telegram_id')
+        
+        # If no telegram_id provided, return full list (admin only)
+        if not telegram_id:
+            return self.list(request, *args, **kwargs)
+            
+        # Check single company status by telegram_id
+        try:
+            company = Company.objects.get(telegram_id=telegram_id)
+            return Response({
+                "exists": True,
+                "survey_completed": True,  # Or your actual status field
+                "company": CompanySerializer(company).data
+            }, status=status.HTTP_200_OK)
+        except Company.DoesNotExist:
+            return Response({
+                "exists": False,
+                "survey_completed": False,
+                "message": "No company found with this telegram ID"
+            }, status=status.HTTP_404_NOT_FOUND)
 
     def create(self, request, *args, **kwargs):
         telegram_id = request.data.get("telegram_id")
