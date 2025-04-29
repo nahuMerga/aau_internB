@@ -5,7 +5,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from apscheduler.schedulers.background import BackgroundScheduler
-from students.models import Student, InternshipOfferLetter
+from students.models import Student, InternshipOfferLetter, InternshipReport
 from advisors.models import Advisor
 from students.serializers import StudentSerializer, InternshipOfferLetterSerializer, InternshipReportSerializer
 from advisors.serializers import AdvisorSerializer
@@ -96,7 +96,6 @@ class CompanyListCreateView(generics.ListCreateAPIView):
     serializer_class = CompanySerializer
 
     def get_permissions(self):
-        # GET list (admin only) and single item (anyone)
         if self.request.method == 'GET' and 'telegram_id' not in self.request.query_params:
             return [permissions.IsAdminUser()]
         return [permissions.AllowAny()]
@@ -104,16 +103,14 @@ class CompanyListCreateView(generics.ListCreateAPIView):
     def get(self, request, *args, **kwargs):
         telegram_id = request.query_params.get('telegram_id')
         
-        # If no telegram_id provided, return full list (admin only)
         if not telegram_id:
             return self.list(request, *args, **kwargs)
             
-        # Check single company status by telegram_id
         try:
             company = Company.objects.get(telegram_id=telegram_id)
             return Response({
                 "exists": True,
-                "survey_completed": True,  # Or your actual status field
+                "survey_completed": True,
                 "company": CompanySerializer(company).data
             }, status=status.HTTP_200_OK)
         except Company.DoesNotExist:
@@ -132,19 +129,45 @@ class CompanyListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if a company with the same telegram_id already exists
+        # Check if company already exists
         if Company.objects.filter(telegram_id=telegram_id).exists():
             return Response(
                 {"error": "A company with this telegram_id has already been submitted."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Check if Report 3 exists for this student
+        try:
+            student = Student.objects.get(telegram_id=telegram_id)
+            report_exists = InternshipReport.objects.filter(
+                student=student, 
+                report_number=3
+            ).exists()
+            
+            if not report_exists:
+                return Response(
+                    {"error": "Cannot submit company survey until Report 3 is submitted."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except Student.DoesNotExist:
+            return Response(
+                {"error": "Student with this telegram_id not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         try:
             with transaction.atomic():
-                # Validate and save company directly
                 serializer = self.get_serializer(data=request.data)
                 serializer.is_valid(raise_exception=True)
                 company = serializer.save()
+
+                return Response(
+                    {
+                        "message": "Company submitted successfully.",
+                        "company": CompanySerializer(company).data
+                    },
+                    status=status.HTTP_201_CREATED
+                )
 
         except IntegrityError:
             return Response(
@@ -156,14 +179,6 @@ class CompanyListCreateView(generics.ListCreateAPIView):
                 {"error": "An unexpected error occurred.", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-        return Response(
-            {
-                "message": "Company submitted successfully.",
-                "company": CompanySerializer(company).data
-            },
-            status=status.HTTP_201_CREATED
-        )
 
 class UploadStudentExcelView(APIView):
     permission_classes = [permissions.AllowAny]  # Ensure only admin can upload the file
