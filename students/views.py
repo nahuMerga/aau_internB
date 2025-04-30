@@ -79,7 +79,7 @@ class StudentRegistrationView(APIView):
 
         advisor_data = {
             "name": f"{advisor.first_name} {advisor.last_name}",
-            "email": advisor.email,
+            "email": advisor.user.email,
             "phone": advisor.phone_number,
         }
 
