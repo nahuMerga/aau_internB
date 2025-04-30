@@ -75,12 +75,13 @@ class StudentRegistrationView(APIView):
             student=third_year_student
         )
 
-        advisor = student.assigned_advisor  # assuming a ForeignKey to Advisor
+        advisor = student.assigned_advisor  
 
         advisor_data = {
             "name": f"{advisor.first_name} {advisor.last_name}",
             "email": advisor.user.email,
             "phone": advisor.phone_number,
+            "report submission interval days" : advisor.report_submission_interval_days,
         }
 
         return Response({
