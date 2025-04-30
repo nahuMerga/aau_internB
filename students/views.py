@@ -75,9 +75,18 @@ class StudentRegistrationView(APIView):
             student=third_year_student
         )
 
+        advisor = student.assigned_advisor  # assuming a ForeignKey to Advisor
+
+        advisor_data = {
+            "name": f"{advisor.first_name} {advisor.last_name}",
+            "email": advisor.email,
+            "phone": advisor.phone_number,
+        }
+
         return Response({
-            "message": f"🎉 Congratulations {student.full_name}! You have successfully registered! 🎉\nNow you can start using the mini app. 🚀\n\nWelcome to the AAU Internship System! 🏆\n\n👉 [Start using the mini app](https://internship-mini-app.vercel.app/) 👈",
+            "message": f"🎉 Congratulations {student.full_name}! You have successfully registered! 🎉\nNow you can start using the mini app. 🚀\n\nWelcome to the AAU Internship System! 🏆",
             "OTPVerified": True,
+            "advisor": advisor_data,
         }, status=status.HTTP_201_CREATED)
 
     def verify_otp(self, university_id, otp_code):

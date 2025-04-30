@@ -116,19 +116,23 @@ class CompanyListCreateView(generics.ListCreateAPIView):
         except Company.DoesNotExist:
             try:
                 student = Student.objects.get(telegram_id=telegram_id)
-                report3_exists = InternshipReport.objects.filter(
+                advisor = student.assigned_advisor
+                expected_reports = advisor.number_of_expected_reports
+                required_report_number = expected_reports - 1
+
+                report_exists = InternshipReport.objects.filter(
                     student=student,
-                    report_number=3
+                    report_number=required_report_number
                 ).exists()
                 
                 return Response({
                     "exists": False,
                     "survey_completed": False,
-                    "can_fill_survey": report3_exists,
+                    "can_fill_survey": report_exists,
                     "message": "Company survey not submitted yet",
                     "requirements_met": {
-                        "report3_submitted": report3_exists,
-                        "missing_requirements": [] if report3_exists else ["Report 3"]
+                        "report_submitted": report_exists,
+                        "missing_requirements": [] if report_exists else [f"Report {required_report_number}"]
                     }
                 }, status=status.HTTP_200_OK)
                 
@@ -139,7 +143,7 @@ class CompanyListCreateView(generics.ListCreateAPIView):
                     "can_fill_survey": False,
                     "message": "Student not found with this telegram ID",
                     "requirements_met": {
-                        "report3_submitted": False,
+                        "report_submitted": False,
                         "missing_requirements": ["Student record"]
                     }
                 }, status=status.HTTP_404_NOT_FOUND)
@@ -161,14 +165,18 @@ class CompanyListCreateView(generics.ListCreateAPIView):
 
         try:
             student = Student.objects.get(telegram_id=telegram_id)
+            advisor = student.assigned_advisor
+            expected_reports = advisor.number_of_expected_reports
+            required_report_number = expected_reports - 1
+
             report_exists = InternshipReport.objects.filter(
                 student=student, 
-                report_number=3
+                report_number=required_report_number
             ).exists()
             
             if not report_exists:
                 return Response(
-                    {"error": "Cannot submit company survey until Report 3 is submitted."},
+                    {"error": f"Cannot submit company survey until Report {required_report_number} is submitted."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
         except Student.DoesNotExist:
