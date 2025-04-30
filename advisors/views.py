@@ -87,19 +87,18 @@ def generate_password():
 # View to handle advisor bulk registration from Excel
 class AdvisorRegistrationView(APIView):
     permission_classes = [AllowAny]  # Admin will use this API
-    
+
     def post(self, request):
         excel_file = request.FILES.get('file')
         if not excel_file:
             return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Read the Excel file into a pandas dataframe
             df = pd.read_excel(excel_file)
 
-            # Check if the necessary columns are present in the file
-            required_columns = {'advisor_name', 'email'}
-            if not required_columns.issubset(set(df.columns)):
+            # Now include new expected columns
+            required_columns = {'advisor_name', 'email', 'f_name', 'l_name', 'phone_number'}
+            if not required_columns.issubset(df.columns):
                 return Response({
                     "error": f"Missing required columns. Required: {required_columns}"
                 }, status=status.HTTP_400_BAD_REQUEST)
@@ -107,32 +106,37 @@ class AdvisorRegistrationView(APIView):
             failed_emails = []
             successful_emails = []
 
-            # Iterate over the rows in the Excel file
             for _, row in df.iterrows():
                 advisor_name = str(row['advisor_name']).strip()
                 email = str(row['email']).strip()
+                f_name = str(row['f_name']).strip()
+                l_name = str(row['l_name']).strip()
+                phone_number = str(row['phone_number']).strip()
 
-                # Ensure the email is valid and doesn't already exist in the system
                 if User.objects.filter(email=email).exists():
                     failed_emails.append(email)
                     continue
-                
-                username = advisor_name.replace(" ", "").lower()  # Simplified username from name
-                password = generate_password()  # Generate a random password
+
+                username = advisor_name.replace(" ", "").lower()
+                password = generate_password()
 
                 try:
-                    # Create the user
                     user = User.objects.create_user(username=username, email=email, password=password)
-                    user.is_active = True  # Make the user active
+                    user.is_active = True
                     user.save()
 
-                    # Create the advisor profile in the Advisor model
-                    advisor = Advisor.objects.create(user=user)
-                    # Send an email with the generated credentials to the advisor
+                    # Create advisor and set new fields
+                    advisor = Advisor.objects.create(
+                        user=user,
+                        first_name=f_name,
+                        last_name=l_name,
+                        phone_number=phone_number
+                    )
+
                     send_mail(
                         subject="Your Advisor Account Credentials",
                         message=f"Hello {advisor_name},\n\nYour account has been created.\nUsername: {username}\nPassword: {password}\n\nPlease log in and update your password immediately.",
-                        from_email="admin@yourdomain.com",  # Update with your real email
+                        from_email="admin@yourdomain.com",
                         recipient_list=[email],
                         fail_silently=False,
                     )
@@ -150,7 +154,7 @@ class AdvisorRegistrationView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
         
 class LoginView(APIView):
     permission_classes = [AllowAny]

@@ -212,31 +212,48 @@ class CompanyListCreateView(generics.ListCreateAPIView):
 
 @background(schedule=1)
 def notify_advisor_async(advisor_id):
-    advisor = Advisor.objects.select_related('user').get(id=advisor_id)
-    students = ThirdYearStudentList.objects.filter(assigned_advisor=advisor)
-
-    if not students.exists():
-        return
-
-    student_lines = [f"{s.full_name} (ID: {s.university_id})" for s in students]
-    student_list_text = "\n".join(student_lines)
-
     try:
+        # Get the advisor (which is related to the User model)
+        advisor = Advisor.objects.select_related('user').get(id=advisor_id)
+        
+        # Get the email of the associated User model
+        advisor_email = advisor.user.email
+
+        # Get the students assigned to the advisor
+        students = ThirdYearStudentList.objects.filter(assigned_advisor=advisor)
+
+        if not students.exists():
+            return
+
+        # Prepare the list of students to send in the email
+        student_lines = [f"{s.full_name} (ID: {s.university_id})" for s in students]
+        student_list_text = "\n".join(student_lines)
+
+        # Prepare the email content
+        subject = "AAU Internship – Your Assigned Students"
+        message = (
+            f"Dear {advisor.first_name},\n\n"
+            f"You have been assigned the following students:\n\n"
+            f"{student_list_text}\n\n"
+            f"Best regards,\nAAU Internship Team"
+        )
+        from_email = "aau57.sis@gmail.com"  # Your email address here
+        recipient_list = [advisor_email]
+
+        # Send the email
         send_mail(
-            subject="AAU Internship – Your Assigned Students",
-            message=(
-                f"Dear {advisor.first_name},\n\n"
-                f"You have been assigned the following students:\n\n"
-                f"{student_list_text}\n\n"
-                f"Best regards,\nAAU Internship Team"
-            ),
-            from_email="aau57.sis@gmail.com",
-            recipient_list=[advisor.user.email],
+            subject=subject,
+            message=message,
+            from_email=from_email,
+            recipient_list=recipient_list,
             fail_silently=False,
         )
-    except Exception as e:
-        print(f"Email failed to {advisor.user.email}: {e}")
+        print(f"Email sent to {advisor_email} successfully.")
 
+    except ObjectDoesNotExist:
+        print(f"Error: Advisor with ID {advisor_id} does not exist.")
+    except Exception as e:
+        print(f"Error sending email to {advisor_id}: {str(e)}")
 
 class UploadStudentExcelView(APIView):
     permission_classes = [permissions.AllowAny]
