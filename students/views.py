@@ -81,7 +81,7 @@ class StudentRegistrationView(APIView):
             "name": f"{advisor.first_name} {advisor.last_name}",
             "email": advisor.user.email,
             "phone": advisor.phone_number,
-            "report_submission_interval days" : advisor.report_submission_interval_days,
+            "report_submission_interval_days" : advisor.report_submission_interval_days,
         }
 
         return Response({
