@@ -76,12 +76,14 @@ class StudentRegistrationView(APIView):
         )
 
         advisor = student.assigned_advisor  
-
+        department = student.department
+        internship_duration_days = department.internship_duration_weeks * 7 
         advisor_data = {
             "name": f"{advisor.first_name} {advisor.last_name}",
             "email": advisor.user.email,
             "phone": advisor.phone_number,
             "report_submission_interval_days" : advisor.report_submission_interval_days,
+            "internship_duration_days" : internship_duration_days,
         }
 
         return Response({
