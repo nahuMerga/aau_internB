@@ -280,7 +280,7 @@ class InternshipReportUploadView(generics.CreateAPIView):
                     "interval_days": interval_days
                 }, status=status.HTTP_400_BAD_REQUEST)
         else:
-            if today < student.start_date:
+            if student.start_date and today < student.start_date:
                 return Response({
                     "error": "Internship has not officially started yet.",
                     "start_date": student.start_date
