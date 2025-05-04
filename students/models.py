@@ -20,7 +20,7 @@ class Student(models.Model):
     phone_number = models.CharField(max_length=15)
     telegram_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Pending')
-    start_date = models.DateField(null=True, blank=True)
+    start_date = models.DateField(default=datetime.now())
     end_date = models.DateField(null=True, blank=True)
     internship_year = models.PositiveIntegerField(default=datetime.now().year, null=True, blank=True)
     assigned_advisor = models.ForeignKey(

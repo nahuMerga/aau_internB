@@ -344,12 +344,12 @@ class InternshipReportUploadView(generics.CreateAPIView):
                 "details": str(e),
                 "solution": "Please check your file and try again with a valid document"
             }, status=status.HTTP_400_BAD_REQUEST)
-        # except Exception as e:
-        #     return Response({
-        #         "error": "Unexpected error occurred",
-        #         "details": "We couldn't process your document upload",
-        #         "solution": "Please try again later or contact support"
-        #     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            return Response({
+                "error": "Unexpected error occurred",
+                "details": "We couldn't process your document upload",
+                "solution": "Please try again later or contact support"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         
 
