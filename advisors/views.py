@@ -79,81 +79,109 @@ class UpdateAdvisorProfileView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# Utility function to generate a random password
-def generate_password():
-    """Generate a random password"""
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
-# View to handle advisor bulk registration from Excel
+def generate_password(length=10):
+    """Generate a secure random password"""
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
+def clean_string(value):
+    """Ensure value is string, trimmed, and non-null"""
+    return str(value).strip() if pd.notna(value) else ""
+
+
 class AdvisorRegistrationView(APIView):
-    permission_classes = [AllowAny]  # Admin will use this API
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        excel_file = request.FILES.get('file')
-        if not excel_file:
-            return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
+        file = request.FILES.get('file')
+        if not file:
+            return Response({"error": "❌ No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            df = pd.read_excel(excel_file)
+            df = pd.read_excel(file)
 
-            # Now include new expected columns
             required_columns = {'advisor_name', 'email', 'f_name', 'l_name', 'phone_number'}
             if not required_columns.issubset(df.columns):
                 return Response({
-                    "error": f"Missing required columns. Required: {required_columns}"
+                    "error": f"❌ Missing required columns. Found: {set(df.columns)}. Required: {required_columns}"
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            failed_emails = []
+            failed_rows = []
             successful_emails = []
 
-            for _, row in df.iterrows():
-                advisor_name = str(row['advisor_name']).strip()
-                email = str(row['email']).strip()
-                f_name = str(row['f_name']).strip()
-                l_name = str(row['l_name']).strip()
-                phone_number = str(row['phone_number']).strip()
-
-                if User.objects.filter(email=email).exists():
-                    failed_emails.append(email)
-                    continue
-
-                username = advisor_name.replace(" ", "").lower()
-                password = generate_password()
-
+            for index, row in df.iterrows():
                 try:
-                    user = User.objects.create_user(username=username, email=email, password=password)
-                    user.is_active = True
-                    user.save()
+                    # Extract and sanitize fields
+                    advisor_name = clean_string(row['advisor_name'])
+                    email = clean_string(row['email'])
+                    f_name = clean_string(row['f_name'])
+                    l_name = clean_string(row['l_name'])
+                    phone_number = clean_string(row['phone_number'])
 
-                    # Create advisor and set new fields
-                    advisor = Advisor.objects.create(
-                        user=user,
-                        first_name=f_name,
-                        last_name=l_name,
-                        phone_number=phone_number
-                    )
+                    if not all([advisor_name, email, f_name, l_name, phone_number]):
+                        raise ValueError("⚠️ One or more required fields are empty.")
 
-                    send_mail(
-                        subject="Your Advisor Account Credentials",
-                        message=f"Hello {advisor_name},\n\nYour account has been created.\nUsername: {username}\nPassword: {password}\n\nPlease log in and update your password immediately.",
-                        from_email="admin@yourdomain.com",
-                        recipient_list=[email],
-                        fail_silently=False,
-                    )
+                    if not phone_number.isdigit():
+                        raise ValueError("📵 Invalid phone number: must contain digits only.")
+
+                    if User.objects.filter(email=email).exists():
+                        raise ValueError("📧 Email already exists.")
+
+                    # Unique username handling
+                    base_username = advisor_name.replace(" ", "").lower()
+                    username = base_username
+                    counter = 1
+                    while User.objects.filter(username=username).exists():
+                        username = f"{base_username}{counter}"
+                        counter += 1
+
+                    password = generate_password()
+
+                    # Begin atomic block
+                    with transaction.atomic():
+                        user = User.objects.create_user(username=username, email=email, password=password)
+                        user.is_active = True
+                        user.save()
+
+                        Advisor.objects.create(
+                            user=user,
+                            first_name=f_name,
+                            last_name=l_name,
+                            phone_number=phone_number
+                        )
+
+                        try:
+                            send_mail(
+                                subject="Your Advisor Account Credentials",
+                                message=f"Dear {advisor_name},\n\nYour advisor account has been successfully created.\n\nUsername: {username}\nPassword: {password}\n\nPlease login and update your password immediately.",
+                                from_email="admin@yourdomain.com",  # Adjust this
+                                recipient_list=[email],
+                                fail_silently=False,
+                            )
+                        except Exception as mail_error:
+                            raise Exception(f"📨 Email sending failed: {str(mail_error)}")
 
                     successful_emails.append(email)
 
                 except Exception as e:
-                    failed_emails.append(email)
-                    print(f"Error creating advisor for {email}: {str(e)}")
+                    failed_rows.append({
+                        "row_number": index + 2,  # +2 accounts for header + 0-index
+                        "email": email,
+                        "error": str(e)
+                    })
 
             return Response({
-                'successful_emails': successful_emails,
-                'failed_emails': failed_emails,
-            }, status=status.HTTP_201_CREATED)
+                "✅ successful_emails": successful_emails,
+                "❌ failed_rows": failed_rows,
+                "summary": f"{len(successful_emails)} succeeded, {len(failed_rows)} failed"
+            }, status=status.HTTP_200_OK)
 
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as global_error:
+            return Response({
+                "error": f"❌ Something went wrong while processing the file: {str(global_error)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
         
 class LoginView(APIView):
