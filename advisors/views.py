@@ -23,8 +23,7 @@ import string
 from django.core.mail import send_mail
 from rest_framework.exceptions import ValidationError
 from django.contrib.auth import password_validation
-
-
+from django.db import transaction
 
 class UpdateAdvisorProfileView(APIView):
     permission_classes = [IsAuthenticated]
