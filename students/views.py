@@ -380,7 +380,6 @@ class OfferLetterStatusView(APIView):
 
         return Response(response_data)
 
-
 from datetime import timedelta
 from django.utils import timezone
 
@@ -400,30 +399,37 @@ class ReportStatusView(APIView):
         if not advisor:
             return Response({"error": "No advisor assigned to this student"}, status=status.HTTP_400_BAD_REQUEST)
 
-        existing_reports = {r.report_number: r for r in InternshipReport.objects.filter(student=student)}
-        report_amount = advisor.number_of_expected_reports
+        # Get all reports
+        existing_reports_qs = InternshipReport.objects.filter(student=student)
+        existing_reports = {r.report_number: r for r in existing_reports_qs}
+
+        # Determine latest submission date
+        last_report = existing_reports_qs.order_by('-submission_date').first()
         submission_interval = advisor.report_submission_interval_days
-        last_submission_date = student.last_report_submission_date  # Assuming this field exists
-        current_date = timezone.now()
+        now = timezone.now()
 
-        # Calculate days remaining for the next report upload
-        if last_submission_date:
-            next_update_date = last_submission_date + timedelta(days=submission_interval)
-            days_left = (next_update_date - current_date).days
+        if last_report:
+            next_allowed_date = last_report.submission_date + timedelta(days=submission_interval)
+            days_left = (next_allowed_date - now).days
+            days_left = max(days_left, 0)
         else:
-            days_left = submission_interval  # If no report has been uploaded, use the interval as days left
+            # No report submitted yet — all are unlocked
+            days_left = 0
 
+        # If days_left > 0, user must wait before uploading the next report
+        lock_future_reports = days_left > 0
+
+        report_amount = advisor.number_of_expected_reports
         reports = []
-        lock_reports = days_left <= 0  # Lock reports if no days left
+
         for i in range(1, report_amount + 1):
             report = existing_reports.get(i)
-            report_data = {
+            reports.append({
                 "report_number": i,
                 "uploaded": bool(report),
                 "document": report.document_url if report else None,
-                "locked": lock_reports and not report  # Lock if no days left and the report is not uploaded
-            }
-            reports.append(report_data)
+                "locked": not report and lock_future_reports
+            })
 
         return Response({
             "student_name": student.full_name,
@@ -433,3 +439,4 @@ class ReportStatusView(APIView):
             "days_left_for_next_update": days_left,
             "reports": reports
         })
+
