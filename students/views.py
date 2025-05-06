@@ -381,7 +381,8 @@ class OfferLetterStatusView(APIView):
         return Response(response_data)
 
 
-
+from datetime import timedelta
+from django.utils import timezone
 
 class ReportStatusView(APIView):
     permission_classes = [AllowAny]
@@ -401,20 +402,34 @@ class ReportStatusView(APIView):
 
         existing_reports = {r.report_number: r for r in InternshipReport.objects.filter(student=student)}
         report_amount = advisor.number_of_expected_reports
+        submission_interval = advisor.report_submission_interval_days
+        last_submission_date = student.last_report_submission_date  # Assuming this field exists
+        current_date = timezone.now()
+
+        # Calculate days remaining for the next report upload
+        if last_submission_date:
+            next_update_date = last_submission_date + timedelta(days=submission_interval)
+            days_left = (next_update_date - current_date).days
+        else:
+            days_left = submission_interval  # If no report has been uploaded, use the interval as days left
 
         reports = []
+        lock_reports = days_left <= 0  # Lock reports if no days left
         for i in range(1, report_amount + 1):
             report = existing_reports.get(i)
-            reports.append({
+            report_data = {
                 "report_number": i,
                 "uploaded": bool(report),
-                "document": report.document_url if report else None
-            })
+                "document": report.document_url if report else None,
+                "locked": lock_reports and not report  # Lock if no days left and the report is not uploaded
+            }
+            reports.append(report_data)
 
         return Response({
             "student_name": student.full_name,
             "advisor_name": f"{advisor.first_name} {advisor.last_name}",
             "report_amount": report_amount,
-            "submission_interval_days": advisor.report_submission_interval_days,
+            "submission_interval_days": submission_interval,
+            "days_left_for_next_update": days_left,
             "reports": reports
         })
