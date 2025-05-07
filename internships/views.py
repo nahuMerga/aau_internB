@@ -22,9 +22,8 @@ from django.db import IntegrityError, transaction
 from background_task import background
 
 
-
 class AdminStudentsListView(generics.ListAPIView):
-    """Admin can view all students"""
+    """Admin can view all students (registered + third year list)"""
     serializer_class = StudentSerializer
     permission_classes = [permissions.IsAdminUser]
 
@@ -37,9 +36,10 @@ class AdminStudentsListView(generics.ListAPIView):
         return queryset
 
     def list(self, request, *args, **kwargs):
-        response = super().list(request, *args, **kwargs)
+        registered_response = super().list(request, *args, **kwargs)
 
-        for student_data in response.data:
+        # Modify each registered student's data
+        for student_data in registered_response.data:
             student_data['department'] = student_data.get('department', {}).get('name', None)
 
             student_id = student_data.get('id')
@@ -49,7 +49,13 @@ class AdminStudentsListView(generics.ListAPIView):
             except InternshipOfferLetter.DoesNotExist:
                 student_data['company_name'] = None
 
-        return response
+        # Get all ThirdYearStudentList entries
+        third_year_students = ThirdYearStudentList.objects.all().values()
+
+        return Response({
+            "registered_students": registered_response.data,
+            "third_year_students": third_year_students
+        })
 
 
 class AdminAdvisorsListView(generics.ListAPIView):
