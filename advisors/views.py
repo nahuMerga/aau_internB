@@ -111,7 +111,6 @@ class AdvisorRegistrationView(APIView):
 
             for index, row in df.iterrows():
                 try:
-                    # Extract and sanitize fields
                     advisor_name = clean_string(row['advisor_name'])
                     email = clean_string(row['email'])
                     f_name = clean_string(row['f_name'])
@@ -127,7 +126,7 @@ class AdvisorRegistrationView(APIView):
                     if User.objects.filter(email=email).exists():
                         raise ValueError("📧 Email already exists.")
 
-                    # Unique username handling
+                    # Unique username
                     base_username = advisor_name.replace(" ", "").lower()
                     username = base_username
                     counter = 1
@@ -137,35 +136,40 @@ class AdvisorRegistrationView(APIView):
 
                     password = generate_password()
 
-                    # Begin atomic block
-                    with transaction.atomic():
-                        user = User.objects.create_user(username=username, email=email, password=password)
-                        user.is_active = True
-                        user.save()
+                    # ✅ Register user and advisor (no atomic block)
+                    user = User.objects.create_user(username=username, email=email, password=password)
+                    user.is_active = True
+                    user.save()
 
-                        Advisor.objects.create(
-                            user=user,
-                            first_name=f_name,
-                            last_name=l_name,
-                            phone_number=phone_number
+                    Advisor.objects.create(
+                        user=user,
+                        first_name=f_name,
+                        last_name=l_name,
+                        phone_number=phone_number
+                    )
+
+                    # ✅ Try to send email, but don't raise errors
+                    try:
+                        send_mail(
+                            subject="Your Advisor Account Credentials",
+                            message=(
+                                f"Dear {advisor_name},\n\n"
+                                f"Your advisor account has been created.\n\n"
+                                f"Username: {username}\nPassword: {password}\n\n"
+                                "Please login and update your password immediately."
+                            ),
+                            from_email="admin@yourdomain.com",
+                            recipient_list=[email],
+                            fail_silently=True  # Don't throw error if it fails
                         )
-
-                        try:
-                            send_mail(
-                                subject="Your Advisor Account Credentials",
-                                message=f"Dear {advisor_name},\n\nYour advisor account has been successfully created.\n\nUsername: {username}\nPassword: {password}\n\nPlease login and update your password immediately.",
-                                from_email="admin@yourdomain.com",  # Adjust this
-                                recipient_list=[email],
-                                fail_silently=False,
-                            )
-                        except Exception as mail_error:
-                            raise Exception(f"📨 Email sending failed: {str(mail_error)}")
+                    except Exception as email_error:
+                        print(f"⚠️ Failed to send email to {email}: {email_error}")
 
                     successful_emails.append(email)
 
                 except Exception as e:
                     failed_rows.append({
-                        "row_number": index + 2,  # +2 accounts for header + 0-index
+                        "row_number": index + 2,
                         "email": email,
                         "error": str(e)
                     })
