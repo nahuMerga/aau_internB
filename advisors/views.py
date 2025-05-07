@@ -24,6 +24,7 @@ from django.core.mail import send_mail
 from rest_framework.exceptions import ValidationError
 from django.contrib.auth import password_validation
 from django.db import transaction
+from internships.models import ThirdYearStudentList 
 
 class UpdateAdvisorProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -213,11 +214,12 @@ class LogoutView(APIView):
             return Response({"message": "Successfully logged out"}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
+
         
 class AdvisorStudentsView(APIView):
     """
     Get a list of students assigned to the logged-in advisor,
-    including offer letter, reports, and dashboard stats.
+    including offer letter, reports, dashboard stats, and third-year student list.
     """
     permission_classes = [AllowAny]
 
@@ -227,6 +229,7 @@ class AdvisorStudentsView(APIView):
             return Response({"error": "User is not an advisor"}, status=status.HTTP_403_FORBIDDEN)
 
         students = Student.objects.filter(assigned_advisor=advisor)
+        third_year_students = ThirdYearStudentList.objects.filter(advisor=advisor)
 
         student_data = []
         total_assigned_students = students.count()
@@ -237,11 +240,9 @@ class AdvisorStudentsView(APIView):
             offer_letter = InternshipOfferLetter.objects.filter(student=student).first()
             reports = InternshipReport.objects.filter(student=student)
 
-            # Count pending advisor approvals for offer letter
             if offer_letter and offer_letter.advisor_approved == "Pending":
                 pending_approval_count += 1
 
-            # Count how many reports the student has (to review = all of them for now)
             reports_to_review_count += reports.count()
 
             student_data.append({
@@ -250,19 +251,33 @@ class AdvisorStudentsView(APIView):
                 "full_name": student.full_name,
                 "institutional_email": student.institutional_email,
                 "phone_number": student.phone_number,
-                "telegram_id": student.telegram_id,  # ← Added this line
+                "telegram_id": student.telegram_id,
                 "status": student.status,
                 "start_date": student.start_date,
                 "end_date": student.end_date,
                 "department": student.department.name,
-                "company_name": offer_letter.company_name if offer_letter else None,  # ✅ Add this line
+                "company_name": offer_letter.company_name if offer_letter else None,
                 "offer_letter": InternshipOfferLetterReadSerializer(offer_letter).data if offer_letter else None,
                 "internship_reports": InternshipReportReadSerializer(reports, many=True).data
             })
 
+        # ✅ Serialize third year students
+        third_year_data = []
+        for s in third_year_students:
+            third_year_data.append({
+                "id": s.id,
+                "full_name": s.full_name,
+                "university_id": s.university_id,
+                "institutional_email": s.institutional_email,
+                "phone_number": s.phone_number,
+                "telegram_id": s.telegram_id,
+                "department": s.department.name if s.department else None,
+                "status": s.status,
+            })
 
         response_data = {
             "students": student_data,
+            "third_year_students": third_year_data,  # ✅ Included nicely
             "stats": {
                 "assigned_students": total_assigned_students,
                 "pending_approval": pending_approval_count,
