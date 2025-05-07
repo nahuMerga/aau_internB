@@ -216,6 +216,7 @@ class LogoutView(APIView):
             return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
 
         
+
 class AdvisorStudentsView(APIView):
     """
     Get a list of students assigned to the logged-in advisor,
@@ -229,7 +230,7 @@ class AdvisorStudentsView(APIView):
             return Response({"error": "User is not an advisor"}, status=status.HTTP_403_FORBIDDEN)
 
         students = Student.objects.filter(assigned_advisor=advisor)
-        third_year_students = ThirdYearStudentList.objects.filter(advisor=advisor)
+        third_year_students = ThirdYearStudentList.objects.filter(assigned_advisor=advisor)
 
         student_data = []
         total_assigned_students = students.count()
@@ -261,23 +262,18 @@ class AdvisorStudentsView(APIView):
                 "internship_reports": InternshipReportReadSerializer(reports, many=True).data
             })
 
-        # ✅ Serialize third year students
+        # ✅ Include ThirdYearStudentList (with valid model fields only)
         third_year_data = []
         for s in third_year_students:
             third_year_data.append({
-                "id": s.id,
-                "full_name": s.full_name,
                 "university_id": s.university_id,
-                "institutional_email": s.institutional_email,
-                "phone_number": s.phone_number,
-                "telegram_id": s.telegram_id,
-                "department": s.department.name if s.department else None,
-                "status": s.status,
+                "full_name": s.full_name,
+                "institutional_email": s.institutional_email
             })
 
         response_data = {
             "students": student_data,
-            "third_year_students": third_year_data,  # ✅ Included nicely
+            "third_year_students": third_year_data,  # ✅ Added here
             "stats": {
                 "assigned_students": total_assigned_students,
                 "pending_approval": pending_approval_count,
