@@ -55,7 +55,7 @@ class AdminStudentsListView(generics.ListAPIView):
             if student.assigned_advisor_id:
                 try:
                     advisor = Advisor.objects.get(id=student.assigned_advisor_id)
-                    advisor_name = advisor.full_name
+                    advisor_name = f"{advisor.first_name or ''} {advisor.last_name or ''}".strip()
                 except Advisor.DoesNotExist:
                     advisor_name = None
 
