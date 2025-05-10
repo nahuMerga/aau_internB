@@ -20,6 +20,7 @@ from .serializers import InternshipHistorySerializer
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from background_task import background
+from datetime import datetime
 
 
 class AdminStudentsListView(generics.ListAPIView):
@@ -29,10 +30,8 @@ class AdminStudentsListView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = Student.objects.all()
-
         for student in queryset:
             student.department_name = student.department.name if student.department else None
-
         return queryset
 
     def list(self, request, *args, **kwargs):
@@ -41,7 +40,6 @@ class AdminStudentsListView(generics.ListAPIView):
         # Modify each registered student's data
         for student_data in registered_response.data:
             student_data['department'] = student_data.get('department', {}).get('name', None)
-
             student_id = student_data.get('id')
             try:
                 offer_letter = InternshipOfferLetter.objects.get(student_id=student_id)
@@ -49,14 +47,30 @@ class AdminStudentsListView(generics.ListAPIView):
             except InternshipOfferLetter.DoesNotExist:
                 student_data['company_name'] = None
 
-        # Get all ThirdYearStudentList entries
-        third_year_students = ThirdYearStudentList.objects.all().values()
+        # Prepare third year students with advisor name and year
+        current_year = datetime.now().year
+        third_year_students = []
+        for student in ThirdYearStudentList.objects.all():
+            advisor_name = None
+            if student.assigned_advisor_id:
+                try:
+                    advisor = Advisor.objects.get(id=student.assigned_advisor_id)
+                    advisor_name = advisor.full_name
+                except Advisor.DoesNotExist:
+                    advisor_name = None
+
+            third_year_students.append({
+                "university_id": student.university_id,
+                "full_name": student.full_name,
+                "institutional_email": student.institutional_email,
+                "advisor_name": advisor_name,
+                "year": current_year
+            })
 
         return Response({
             "registered_students": registered_response.data,
             "third_year_students": third_year_students
         })
-
 
 class AdminAdvisorsListView(generics.ListAPIView):
     """Admin can view all advisors"""
