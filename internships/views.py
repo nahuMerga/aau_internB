@@ -63,8 +63,8 @@ class AdminStudentsListView(generics.ListAPIView):
                 "university_id": student.university_id,
                 "full_name": student.full_name,
                 "institutional_email": student.institutional_email,
-                "advisor_name": advisor_name,
-                "year": current_year
+                "assigned_advisor": advisor_name,
+                "internship_year": current_year
             })
 
         return Response({
