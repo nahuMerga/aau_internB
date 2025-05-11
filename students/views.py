@@ -35,7 +35,7 @@ class StudentRegistrationView(APIView):
                 "OTPVerified": False,
                 "error": "OTP verification failed or locked."
             }, status=status.HTTP_400_BAD_REQUEST)
-            
+
         existing_student = Student.objects.filter(university_id=university_id, otp_verified=True).first()
         if existing_student:
             return Response({
@@ -49,14 +49,13 @@ class StudentRegistrationView(APIView):
                 "error": "The internship department calendar is invalid."
             }, status=status.HTTP_400_BAD_REQUEST)
 
-    
         third_year_student = ThirdYearStudentList.objects.filter(university_id=university_id).first()
         if not third_year_student:
             return Response({
                 "error": "Student not found in third-year database."
             }, status=status.HTTP_404_NOT_FOUND)
 
-
+        # ✅ Create or update student in Student model
         student, _ = Student.objects.update_or_create(
             university_id=third_year_student.university_id,
             defaults={
@@ -71,19 +70,23 @@ class StudentRegistrationView(APIView):
             }
         )
 
+        # ✅ Add to InternStudentList
         InternStudentList.objects.update_or_create(
-            student=third_year_student
+            student=student  # ⚠️ must be 'student', not 'third_year_student'
         )
 
+        # ✅ Delete the student from ThirdYearStudentList
+        third_year_student.delete()
+
+        # ✅ Prepare advisor data if advisor assigned
         advisor = student.assigned_advisor  
-        department = student.department
         internship_duration_days = department.internship_duration_weeks * 7 
         advisor_data = {
-            "name": f"{advisor.first_name} {advisor.last_name}",
-            "email": advisor.user.email,
-            "phone": advisor.phone_number,
-            "report_submission_interval_days" : advisor.report_submission_interval_days,
-            "internship_duration_days" : internship_duration_days,
+            "name": f"{advisor.first_name} {advisor.last_name}" if advisor else "",
+            "email": advisor.user.email if advisor else "",
+            "phone": advisor.phone_number if advisor else "",
+            "report_submission_interval_days": advisor.report_submission_interval_days if advisor else None,
+            "internship_duration_days": internship_duration_days,
         }
 
         return Response({
@@ -114,7 +117,6 @@ class StudentRegistrationView(APIView):
 
         otp_entry.delete()
         return True
-        
 
 def upload_to_supabase(file, path_in_bucket):
     SUPABASE_URL = "https://cavdgitwbubdtqdctvlz.supabase.co"
