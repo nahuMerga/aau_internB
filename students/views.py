@@ -158,7 +158,7 @@ def validate_file_format(file):
     if file.size == 0:
         raise ValidationError("The file you uploaded is empty. Please upload a valid document.")
     
-    valid_formats = ['pdf', 'docx', 'doc']
+    valid_formats = ['pdf']
     file_extension = file.name.split('.')[-1].lower()
     
     if not file_extension:
