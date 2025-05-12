@@ -230,26 +230,19 @@ class CompanyListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-@background(schedule=1)
-def notify_advisor_async(advisor_id):
+
+def notify_advisor_immediately(advisor_id):
     try:
-        # Get the advisor (which is related to the User model)
         advisor = Advisor.objects.select_related('user').get(id=advisor_id)
-        
-        # Get the email of the associated User model
         advisor_email = advisor.user.email
 
-        # Get the students assigned to the advisor
         students = ThirdYearStudentList.objects.filter(assigned_advisor=advisor)
-
         if not students.exists():
             return
 
-        # Prepare the list of students to send in the email
         student_lines = [f"{s.full_name} (ID: {s.university_id})" for s in students]
         student_list_text = "\n".join(student_lines)
 
-        # Prepare the email content
         subject = "AAU Internship – Your Assigned Students"
         message = (
             f"Dear {advisor.first_name},\n\n"
@@ -257,10 +250,9 @@ def notify_advisor_async(advisor_id):
             f"{student_list_text}\n\n"
             f"Best regards,\nAAU Internship Team"
         )
-        from_email = "aau57.sis@gmail.com"  # Your email address here
+        from_email = "aau57.sis@gmail.com"  # Replace with your actual sender email
         recipient_list = [advisor_email]
 
-        # Send the email
         send_mail(
             subject=subject,
             message=message,
@@ -268,12 +260,13 @@ def notify_advisor_async(advisor_id):
             recipient_list=recipient_list,
             fail_silently=False,
         )
-        print(f"Email sent to {advisor_email} successfully.")
+        print(f"✅ Email sent to {advisor_email} successfully.")
 
     except ObjectDoesNotExist:
-        print(f"Error: Advisor with ID {advisor_id} does not exist.")
+        print(f"❌ Advisor with ID {advisor_id} does not exist.")
     except Exception as e:
-        print(f"Error sending email to {advisor_id}: {str(e)}")
+        print(f"❌ Error sending email to advisor ID {advisor_id}: {str(e)}")
+
 
 class UploadStudentExcelView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -320,8 +313,9 @@ class UploadStudentExcelView(APIView):
                     "advisor": advisor.first_name
                 })
 
+            # ✅ Send emails immediately to each advisor
             for advisor in Advisor.objects.all():
-                notify_advisor_async(advisor.id)
+                notify_advisor_immediately(advisor.id)
 
             return Response({
                 "message": f"{len(created_students)} students uploaded successfully.",
