@@ -27,35 +27,39 @@ class StudentRegistrationView(APIView):
         telegram_id = request.data.get("telegram_id")
         otp_code = request.data.get("otp_code")
 
+        # ✅ Check all required fields
         if not all([university_id, phone_number, telegram_id, otp_code]):
             return Response({"error": "Missing required fields."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # ✅ Verify OTP
         if not self.verify_otp(university_id, otp_code):
             return Response({
                 "OTPVerified": False,
                 "error": "OTP verification failed or locked."
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        existing_student = Student.objects.filter(university_id=university_id, otp_verified=True).first()
-        if existing_student:
+        # ✅ Check if already registered
+        if Student.objects.filter(university_id=university_id, otp_verified=True).exists():
             return Response({
                 "error": "You have already registered and verified your account.",
                 "OTPVerified": True
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        # ✅ Get valid department
         department = Department.objects.order_by("-internship_end").first()
         if not department or department.internship_start >= department.internship_end:
             return Response({
                 "error": "The internship department calendar is invalid."
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        # ✅ Find third-year student
         third_year_student = ThirdYearStudentList.objects.filter(university_id=university_id).first()
         if not third_year_student:
             return Response({
                 "error": "Student not found in third-year database."
             }, status=status.HTTP_404_NOT_FOUND)
 
-        # ✅ Create or update student in Student model
+        # ✅ Create/update student in Student model
         student, _ = Student.objects.update_or_create(
             university_id=third_year_student.university_id,
             defaults={
@@ -70,17 +74,12 @@ class StudentRegistrationView(APIView):
             }
         )
 
-        # ✅ Add to InternStudentList
-        InternStudentList.objects.update_or_create(
-            student=student  # ⚠️ must be 'student', not 'third_year_student'
-        )
-
-        # ✅ Delete the student from ThirdYearStudentList
+        # ✅ Delete third-year student (this line works now)
         third_year_student.delete()
 
-        # ✅ Prepare advisor data if advisor assigned
-        advisor = student.assigned_advisor  
-        internship_duration_days = department.internship_duration_weeks * 7 
+        # ✅ Prepare advisor data
+        advisor = student.assigned_advisor
+        internship_duration_days = department.internship_duration_weeks * 7
         advisor_data = {
             "name": f"{advisor.first_name} {advisor.last_name}" if advisor else "",
             "email": advisor.user.email if advisor else "",
@@ -95,6 +94,7 @@ class StudentRegistrationView(APIView):
             "advisor": advisor_data,
         }, status=status.HTTP_201_CREATED)
 
+    # ✅ OTP Verification Helper
     def verify_otp(self, university_id, otp_code):
         try:
             otp_entry = OTPVerification.objects.get(university_id=university_id)
@@ -117,6 +117,7 @@ class StudentRegistrationView(APIView):
 
         otp_entry.delete()
         return True
+
 
 def upload_to_supabase(file, path_in_bucket):
     SUPABASE_URL = "https://cavdgitwbubdtqdctvlz.supabase.co"
