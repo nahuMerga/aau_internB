@@ -418,6 +418,8 @@ class ApproveOfferLetterView(APIView):
             "student_name": student.full_name,
             "student_university_id": student.university_id
         }, status=status.HTTP_200_OK)
+
+
         
 class UpdateAdvisorSettingsView(APIView):
     permission_classes = [AllowAny]
