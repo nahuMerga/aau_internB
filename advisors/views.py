@@ -368,30 +368,25 @@ class ApproveOfferLetterView(APIView):
             )
 
         student = offer_letter.student
-
-        # Fetch internship duration from the department the student belongs to
         department = student.department
-        if department:
-            internship_duration_days = department.internship_duration_weeks * 7  # Convert weeks to days
-        else:
+
+        if not department:
             return Response({"error": "Department information is missing for this student"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Handling approve/reject logic
+        internship_duration_days = department.internship_duration_weeks * 7
+
         if status_value == "Approved":
             now = timezone.now().date()
 
-            # Set approval info
             offer_letter.advisor_approved = "Approved"
             offer_letter.approval_date = timezone.now()
             offer_letter.save()
 
-            # Set student internship duration dynamically
             student.start_date = now
-            student.end_date = now + timedelta(days=internship_duration_days)  # Use dynamic duration
+            student.end_date = now + timedelta(days=internship_duration_days)
             student.status = "Ongoing"
             student.save()
 
-            # Send notification via POST request
             if student.telegram_id:
                 payload = {
                     "telegram_id": student.telegram_id,
@@ -406,24 +401,20 @@ class ApproveOfferLetterView(APIView):
                 except requests.RequestException as e:
                     print("Notification failed:", e)
 
-            message = "Offer letter approved successfully"
-            response_data = {
-                "message": message,
+            return Response({
+                "message": "Offer letter approved successfully",
                 "student_name": student.full_name,
                 "student_university_id": student.university_id
-            }
+            }, status=status.HTTP_200_OK)
 
         elif status_value == "Rejected":
-            telegram_id = student.telegram_id  # Get telegram_id before deleting the offer
+            telegram_id = student.telegram_id
             offer_letter.delete()
-            message = "Offer letter rejected and removed from the database"
-            response_data = {
-                "message": message,
-                "student_name": student.full_name,
-                "telegram_id": telegram_id
-            }
 
-        return Response(response_data, status=status.HTTP_200_OK)
+            return Response({
+                "telegram_id": telegram_id,
+                "status": "Rejected"
+            }, status=status.HTTP_200_OK)
 
         
 class UpdateAdvisorSettingsView(APIView):
