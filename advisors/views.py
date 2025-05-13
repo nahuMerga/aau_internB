@@ -402,23 +402,28 @@ class ApproveOfferLetterView(APIView):
                         "https://is-internship-tracking-bot.onrender.com/update-status",
                         json=payload
                     )
-                    response.raise_for_status()  # Optional: raise error for bad status
+                    response.raise_for_status()
                 except requests.RequestException as e:
-                    # Log this properly in production
                     print("Notification failed:", e)
 
             message = "Offer letter approved successfully"
+            response_data = {
+                "message": message,
+                "student_name": student.full_name,
+                "student_university_id": student.university_id
+            }
 
         elif status_value == "Rejected":
+            telegram_id = student.telegram_id  # Get telegram_id before deleting the offer
             offer_letter.delete()
             message = "Offer letter rejected and removed from the database"
+            response_data = {
+                "message": message,
+                "student_name": student.full_name,
+                "telegram_id": telegram_id
+            }
 
-        return Response({
-            "message": message,
-            "student_name": student.full_name,
-            "student_university_id": student.university_id
-        }, status=status.HTTP_200_OK)
-
+        return Response(response_data, status=status.HTTP_200_OK)
 
         
 class UpdateAdvisorSettingsView(APIView):
