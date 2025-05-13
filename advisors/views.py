@@ -387,6 +387,7 @@ class ApproveOfferLetterView(APIView):
             student.status = "Ongoing"
             student.save()
 
+            # ✅ Send APPROVED notification
             if student.telegram_id:
                 payload = {
                     "telegram_id": student.telegram_id,
@@ -409,11 +410,27 @@ class ApproveOfferLetterView(APIView):
 
         elif status_value == "Rejected":
             telegram_id = student.telegram_id
+            full_name = student.full_name
             offer_letter.delete()
 
+            # ✅ Send REJECTED notification
+            if telegram_id:
+                payload = {
+                    "telegram_id": telegram_id,
+                    "status": "Rejected"
+                }
+                try:
+                    response = requests.post(
+                        "https://is-internship-tracking-bot.onrender.com/update-status",
+                        json=payload
+                    )
+                    response.raise_for_status()
+                except requests.RequestException as e:
+                    print("Notification failed:", e)
+
             return Response({
-                "telegram_id": telegram_id,
-                "status": "Rejected"
+                "message": "Student rejected successfully",
+                "student_name": full_name
             }, status=status.HTTP_200_OK)
 
         
