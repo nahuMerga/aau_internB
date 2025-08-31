@@ -5,6 +5,7 @@ from students.models import Student, InternshipOfferLetter, InternshipReport
 from .serializers import StudentSerializer, InternshipOfferLetterSerializer, InternshipReportSerializer
 from internships.models import ThirdYearStudentList, InternStudentList ,Department
 from django.utils import timezone
+from datetime import timedelta
 from rest_framework import status
 from advisors.models import Advisor
 from rest_framework.exceptions import NotAuthenticated, NotFound
@@ -16,11 +17,18 @@ from datetime import timedelta
 from internships.models import Company, InternshipHistory
 import os
 import requests
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
+from rest_framework.throttling import ScopedRateThrottle
+
 
 
 
 class StudentRegistrationView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'sensitive'
+    throttle_classes = [ScopedRateThrottle]
 
     def post(self, request):
         university_id = request.data.get("university_id")
@@ -50,14 +58,12 @@ class StudentRegistrationView(APIView):
                 "error": "The internship department calendar is invalid."
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # ✅ Use university_id to fetch ThirdYearStudentList correctly
         third_year_student = ThirdYearStudentList.objects.filter(university_id=university_id).first()
         if not third_year_student:
             return Response({
                 "error": "Student not found in third-year database."
             }, status=status.HTTP_404_NOT_FOUND)
 
-        # ✅ Create or update Student record
         student, _ = Student.objects.update_or_create(
             university_id=third_year_student.university_id,
             defaults={
@@ -72,10 +78,8 @@ class StudentRegistrationView(APIView):
             }
         )
 
-        # ✅ Delete the third-year student from the list
         third_year_student.delete()
 
-        # ✅ Prepare advisor data if assigned
         advisor = student.assigned_advisor
         internship_duration_days = department.internship_duration_weeks * 7
         advisor_data = {
@@ -174,6 +178,8 @@ def validate_file_format(file):
 class InternshipOfferLetterUploadView(generics.CreateAPIView):
     serializer_class = InternshipOfferLetterSerializer
     permission_classes = [AllowAny]
+    throttle_scope = 'upload'
+    throttle_classes = [ScopedRateThrottle]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -181,7 +187,7 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
 
         telegram_id = serializer.validated_data.get('telegram_id')
         uploaded_file = request.FILES.get('document')
-        company_name = request.data.get('company_name')  # ✅ Extract company_name from request
+        company_name = request.data.get('company_name')
 
 
         if not uploaded_file:
@@ -212,7 +218,7 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
             offer_letter = InternshipOfferLetter.objects.create(
                 student=student,
                 document_url=file_url,
-                company_name=company_name  # ✅ Save company name
+                company_name=company_name
             )
 
             return Response({
@@ -230,6 +236,8 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
 class InternshipReportUploadView(generics.CreateAPIView):
     serializer_class = InternshipReportSerializer
     permission_classes = [AllowAny]
+    throttle_scope = 'upload'
+    throttle_classes = [ScopedRateThrottle]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -355,7 +363,11 @@ class InternshipReportUploadView(generics.CreateAPIView):
 
 class OfferLetterStatusView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'student'
+    throttle_classes = [ScopedRateThrottle]
 
+    @method_decorator(cache_page(300))
+    @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
         telegram_id = request.query_params.get('telegram_id')
         if not telegram_id:
@@ -380,12 +392,15 @@ class OfferLetterStatusView(APIView):
 
         return Response(response_data)
 
-from datetime import timedelta
-from django.utils import timezone
+
 
 class ReportStatusView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'student'
+    throttle_classes = [ScopedRateThrottle]
 
+    @method_decorator(cache_page(300))
+    @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
         telegram_id = request.GET.get("telegram_id")
         if not telegram_id:
@@ -399,11 +414,9 @@ class ReportStatusView(APIView):
         if not advisor:
             return Response({"error": "No advisor assigned to this student"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Get all reports
         existing_reports_qs = InternshipReport.objects.filter(student=student)
         existing_reports = {r.report_number: r for r in existing_reports_qs}
 
-        # Determine latest submission date
         last_report = existing_reports_qs.order_by('-submission_date').first()
         submission_interval = advisor.report_submission_interval_days
         now = timezone.now()
@@ -413,10 +426,8 @@ class ReportStatusView(APIView):
             days_left = (next_allowed_date - now).days
             days_left = max(days_left, 0)
         else:
-            # No report submitted yet — all are unlocked
             days_left = 0
 
-        # If days_left > 0, user must wait before uploading the next report
         lock_future_reports = days_left > 0
 
         report_amount = advisor.number_of_expected_reports
@@ -439,4 +450,5 @@ class ReportStatusView(APIView):
             "days_left_for_next_update": days_left,
             "reports": reports
         })
+
 
