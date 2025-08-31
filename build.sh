@@ -13,3 +13,7 @@ pip3 install -r requirements.txt
 
 # Run database migrations (important step for Django setup)
 python3 manage.py migrate --no-input
+
+# Start the Gunicorn server
+echo "Starting Gunicorn server..."
+gunicorn aau_internB.wsgi:application --bind 0.0.0.0:$PORT
