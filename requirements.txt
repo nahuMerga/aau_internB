@@ -12,8 +12,10 @@ drf-spectacular>=0.28.0
 redis[hiredis]>=6.4.0
 python-dotenv
 supabase
+celery>=5.5.3
 django-redis
 pandas
 openpyxl
 django-background-tasks
+
 
