@@ -164,13 +164,32 @@ DATABASES = {
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv("REDIS_URL"),  # Use your .env value
+        "LOCATION": os.getenv("REDIS_URL"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "PASSWORD": os.getenv("REDIS_TOKEN"),  # Secure token for Upstash
+            "PASSWORD": os.getenv("REDIS_TOKEN"),
         }
     }
 }
+
+CELERY_BROKER_URL = os.getenv("REDIS_URL")
+CELERY_RESULT_BACKEND = os.getenv("REDIS_URL")
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_TASK_ALWAYS_EAGER = False
+CELERY_TASK_EAGER_PROPAGATES = True
+
+
+CELERY_TASK_ROUTES = {
+    'students.tasks.*': {'queue': 'students'},
+    'advisors.tasks.*': {'queue': 'advisors'},
+    'internships.tasks.*': {'queue': 'internships'},
+    'telegram_bot.tasks.*': {'queue': 'telegram'},
+}
+
+CELERY_FLOWER_PORT = 5555
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'AAU Internship Tracking API',
@@ -238,5 +257,4 @@ DEFAULT_FROM_EMAIL = 'aau57.sis@gmail.com'  # The "from" email address that will
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 
