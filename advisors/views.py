@@ -32,6 +32,7 @@ from django.views.decorators.vary import vary_on_headers
 class UpdateAdvisorProfileView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_scope = 'advisor'
+    throttle_classes = [ScopedRateThrottle]
 
     def get_object(self, user):
         try:
@@ -100,6 +101,7 @@ def clean_string(value):
 class AdvisorRegistrationView(APIView):
     permission_classes = [AllowAny]
     throttle_scope = 'sensitive'
+    throttle_classes = [ScopedRateThrottle]
 
     def post(self, request):
         file = request.FILES.get('file')
@@ -198,7 +200,8 @@ class AdvisorRegistrationView(APIView):
         
 class LoginView(APIView):
     permission_classes = [AllowAny]
-    throttle_scope = 'sensitive' 
+    throttle_scope = 'sensitive'
+    throttle_classes = [ScopedRateThrottle]
     
     def post(self, request):
         username = request.data.get('username')
@@ -216,6 +219,7 @@ class LoginView(APIView):
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     throttle_scope = 'advisor'
+    throttle_classes = [ScopedRateThrottle]
 
     def post(self, request):
         try:
@@ -235,6 +239,7 @@ class AdvisorStudentsView(APIView):
     """
     permission_classes = [AllowAny]
     throttle_scope = 'advisor'
+    throttle_classes = [ScopedRateThrottle]
 
     @method_decorator(cache_page(3600))
     @method_decorator(vary_on_headers('Authorization'))
@@ -276,7 +281,6 @@ class AdvisorStudentsView(APIView):
                 "internship_reports": InternshipReportReadSerializer(reports, many=True).data
             })
 
-        # ✅ Include ThirdYearStudentList (with valid model fields only)
         third_year_data = []
         for s in third_year_students:
             third_year_data.append({
@@ -287,7 +291,7 @@ class AdvisorStudentsView(APIView):
 
         response_data = {
             "students": student_data,
-            "third_year_students": third_year_data,  # ✅ Added here
+            "third_year_students": third_year_data,
             "stats": {
                 "assigned_students": total_assigned_students,
                 "pending_approval": pending_approval_count,
@@ -302,11 +306,11 @@ class StudentDetailView(APIView):
     """Retrieve details of a specific student using university_id"""
     permission_classes = [AllowAny]
     throttle_scope = 'advisor'
+    throttle_classes = [ScopedRateThrottle]
 
     @method_decorator(cache_page(1800))
     @method_decorator(vary_on_headers('Authorization'))
     def get(self, request, university_id):
-        # Automatically format university_id (UGR102517 → UGR/1025/17)
         if len(university_id) == 9:  # Assuming format is fixed
             formatted_id = f"{university_id[:3]}/{university_id[3:7]}/{university_id[7:]}"
         else:
@@ -318,39 +322,33 @@ class StudentDetailView(APIView):
 
         student = get_object_or_404(Student, university_id=formatted_id, assigned_advisor=advisor)
 
-        # Get related documents
         offer_letter = InternshipOfferLetter.objects.filter(student=student).first()
         reports = InternshipReport.objects.filter(student=student)
 
-        # Serialize response
         student_data = StudentSerializer(student).data
         student_data["telegram_id"] = student.telegram_id
         
-        # Handle internship offer letter details
         if offer_letter:
             student_data["internship_offer_letter"] = {
-                "company_name": offer_letter.company_name if offer_letter else None,  # ✅ Add this line
-                "document_url": offer_letter.document_url,  # Add URL for the offer letter document
+                "company_name": offer_letter.company_name if offer_letter else None,
+                "document_url": offer_letter.document_url,
                 "advisor_approved": offer_letter.advisor_approved,
                 "approval_date": offer_letter.approval_date,
                 "submission_date": offer_letter.submission_date,
-                # Removed the company field as it's no longer in the model
             }
         else:
             student_data["internship_offer_letter"] = None
 
-        # Handle internship reports details
         student_data["internship_reports"] = []
         for report in reports:
             student_data["internship_reports"].append({
                 "report_number": report.report_number,
-                "document_url": report.document_url,  # Add URL for the report document
+                "document_url": report.document_url,
                 "submission_date": report.submission_date,
                 "created_at": report.created_at,
             })
 
-        # Additional student details
-        student_data["department"] = student.department.name  # Include department name only
+        student_data["department"] = student.department.name
 
         return Response(student_data, status=status.HTTP_200_OK)
 
@@ -361,6 +359,7 @@ class ApproveOfferLetterView(APIView):
     """Approve or reject an internship offer letter using the student's university_id"""
     permission_classes = [IsAuthenticated]
     throttle_scope = 'advisor'
+    throttle_classes = [ScopedRateThrottle]
 
     def put(self, request):
         university_id = request.data.get("university_id")
@@ -371,7 +370,6 @@ class ApproveOfferLetterView(APIView):
 
         user = request.user
 
-        # Superuser can manage any offer letter
         if user.is_superuser:
             offer_letter = get_object_or_404(InternshipOfferLetter, student__university_id=university_id)
         else:
@@ -405,7 +403,6 @@ class ApproveOfferLetterView(APIView):
             student.status = "Ongoing"
             student.save()
 
-            # ✅ Send APPROVED notification
             if student.telegram_id:
                 payload = {
                     "telegram_id": student.telegram_id,
@@ -431,7 +428,6 @@ class ApproveOfferLetterView(APIView):
             full_name = student.full_name
             offer_letter.delete()
 
-            # ✅ Send REJECTED notification
             if telegram_id:
                 payload = {
                     "telegram_id": telegram_id,
@@ -455,6 +451,7 @@ class ApproveOfferLetterView(APIView):
 class UpdateAdvisorSettingsView(APIView):
     permission_classes = [AllowAny]
     throttle_scope = 'advisor'
+    throttle_classes = [ScopedRateThrottle]
 
     def put(self, request):
         advisor = getattr(request.user, "advisor", None)
@@ -466,7 +463,3 @@ class UpdateAdvisorSettingsView(APIView):
             serializer.save()
             return Response({"message": "Advisor settings updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-
