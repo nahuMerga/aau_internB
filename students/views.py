@@ -21,7 +21,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_headers
 from rest_framework.throttling import ScopedRateThrottle
-
+from .tasks import send_registration_email_task
 
 
 
@@ -89,6 +89,12 @@ class StudentRegistrationView(APIView):
             "report_submission_interval_days": advisor.report_submission_interval_days if advisor else None,
             "internship_duration_days": internship_duration_days,
         }
+        
+        send_registration_email_task.delay(
+            student.full_name,
+            student.institutional_email,
+            advisor_data
+        )
 
         return Response({
             "message": f"🎉 Congratulations {student.full_name}! You have successfully registered! 🎉\nNow you can start using the mini app. 🚀\n\nWelcome to the AAU Internship System! 🏆",
@@ -189,7 +195,6 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
         uploaded_file = request.FILES.get('document')
         company_name = request.data.get('company_name')
 
-
         if not uploaded_file:
             return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -200,21 +205,28 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
         if not student.assigned_advisor:
             return Response({"error": "Advisor not assigned yet"}, status=status.HTTP_400_BAD_REQUEST)
 
-    
         if InternshipOfferLetter.objects.filter(student=student, advisor_approved='Approved').exists():
             return Response({"error": "Approved offer letter already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            
+            # Validate file format
             filename = validate_file_format(uploaded_file)
-
-          
             path = f"offer_letters/{telegram_id}/{filename}"
-
-           
-            file_url = upload_to_supabase(uploaded_file, path)
-
-          
+            
+            # Read file content
+            file_content = uploaded_file.read()
+            
+            # Upload to Supabase asynchronously with Celery
+            upload_task = upload_to_supabase_task.delay(
+                file_content, 
+                path, 
+                uploaded_file.content_type
+            )
+            
+            # Wait for the task to complete with a timeout
+            file_url = upload_task.get(timeout=30)
+            
+            # Create the offer letter
             offer_letter = InternshipOfferLetter.objects.create(
                 student=student,
                 document_url=file_url,
@@ -231,7 +243,6 @@ class InternshipOfferLetterUploadView(generics.CreateAPIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
 
 class InternshipReportUploadView(generics.CreateAPIView):
     serializer_class = InternshipReportSerializer
@@ -450,5 +461,3 @@ class ReportStatusView(APIView):
             "days_left_for_next_update": days_left,
             "reports": reports
         })
-
-
