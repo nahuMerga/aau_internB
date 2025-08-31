@@ -16,8 +16,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.http import Http404
 from django.utils import timezone
 from datetime import timedelta
-import requests  # for making HTTP requests
-import pandas as pd
+import requests
 import random
 import string
 from django.core.mail import send_mail
@@ -463,3 +462,4 @@ class UpdateAdvisorSettingsView(APIView):
             serializer.save()
             return Response({"message": "Advisor settings updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
