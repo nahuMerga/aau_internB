@@ -10,23 +10,29 @@ from advisors.models import Advisor
 from students.serializers import StudentSerializer, InternshipOfferLetterSerializer, InternshipReportSerializer
 from advisors.serializers import AdvisorSerializer
 from internships.serializers import CompanySerializer
-from .models import Company, ThirdYearStudentList # Make sure InternshipPeriod is imported from current app
+from .models import Company, ThirdYearStudentList
 import pandas as pd
 from utils.generate_email import generate_email
 from utils.get_next_available_advisor import get_next_available_advisor
-from django.db import models  # Add this import to fix the error
+from django.db import models
 from .models import InternshipHistory
 from .serializers import InternshipHistorySerializer
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from background_task import background
 from datetime import datetime
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
+from rest_framework.throttling import ScopedRateThrottle
 
 
 class AdminStudentsListView(generics.ListAPIView):
     """Admin can view all students (registered + third year list)"""
     serializer_class = StudentSerializer
     permission_classes = [permissions.IsAdminUser]
+    throttle_scope = 'admin'
+    throttle_classes = [ScopedRateThrottle]
 
     def get_queryset(self):
         queryset = Student.objects.all()
@@ -34,6 +40,8 @@ class AdminStudentsListView(generics.ListAPIView):
             student.department_name = student.department.name if student.department else None
         return queryset
 
+    @method_decorator(cache_page(300))  # Cache for 5 minutes
+    @method_decorator(vary_on_headers('Authorization'))  # Different cache per user
     def list(self, request, *args, **kwargs):
         registered_response = super().list(request, *args, **kwargs)
 
@@ -76,11 +84,22 @@ class AdminAdvisorsListView(generics.ListAPIView):
     """Admin can view all advisors"""
     serializer_class = AdvisorSerializer
     permission_classes = [permissions.IsAdminUser]
+    throttle_scope = 'admin'
+    throttle_classes = [ScopedRateThrottle]
     queryset = Advisor.objects.all()
+
+    @method_decorator(cache_page(300))
+    @method_decorator(vary_on_headers('Authorization'))
+    def get(self, request, *args, **kwargs):
+        request.user_id = request.user.id
+        return super().get(request, *args, **kwargs)
+
 
 class AssignAdvisorView(APIView):
     """Admin assigns students to advisors manually using student university_id and advisor username"""
     permission_classes = [permissions.IsAdminUser]
+    throttle_scope = 'admin'
+    throttle_classes = [ScopedRateThrottle]
 
     def post(self, request):
         university_id = request.data.get("university_id")
@@ -102,6 +121,8 @@ def assign_students_to_advisors():
 class AutoAssignAdvisorsView(APIView):
     """Triggers auto assignment manually from frontend"""
     permission_classes = [permissions.IsAdminUser]
+    throttle_scope = 'admin'
+    throttle_classes = [ScopedRateThrottle]
 
     def post(self, request):
         assign_students_to_advisors()
@@ -112,12 +133,18 @@ class AutoAssignAdvisorsView(APIView):
 class CompanyListCreateView(generics.ListCreateAPIView):
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
+    throttle_scope = 'company'
+    throttle_classes = [ScopedRateThrottle]
+
 
     def get_permissions(self):
         if self.request.method == 'GET' and 'telegram_id' not in self.request.query_params:
             return [permissions.IsAdminUser()]
         return [permissions.AllowAny()]
 
+    
+    @method_decorator(cache_page(300))
+    @method_decorator(vary_on_headers('Authorization'))
     def get(self, request, *args, **kwargs):
         telegram_id = request.query_params.get('telegram_id')
         
@@ -270,6 +297,8 @@ def notify_advisor_immediately(advisor_id):
 
 class UploadStudentExcelView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_scope = 'upload'
+    throttle_classes = [ScopedRateThrottle]
 
     def post(self, request, format=None):
         excel_file = request.FILES.get('file')
@@ -328,7 +357,18 @@ class UploadStudentExcelView(APIView):
 
 class InternshipHistoryListView(generics.ListAPIView):
     serializer_class = InternshipHistorySerializer
-    permission_classes = [permissions.IsAdminUser] 
+    permission_classes = [permissions.IsAdminUser]
+    throttle_scope = 'admin'
+    throttle_classes = [ScopedRateThrottle]
+
+    @method_decorator(cache_page(3600))
+    @method_decorator(vary_on_headers('Authorization'))
+    def get(self, request, *args, **kwargs):
+        request.user_id = request.user.id
+        year = self.request.query_params.get('year', None)
+        if year:
+            request.year = year
+        return super().get(request, *args, **kwargs)
     
     def get_queryset(self):
         year = self.request.query_params.get('year', None)
@@ -337,3 +377,4 @@ class InternshipHistoryListView(generics.ListAPIView):
             return InternshipHistory.objects.filter(year=year)
         
         return InternshipHistory.objects.all()
+
