@@ -44,20 +44,25 @@ class AdminStudentsListView(generics.ListAPIView):
     @method_decorator(vary_on_headers('Authorization'))  # Different cache per user
     def list(self, request, *args, **kwargs):
         registered_response = super().list(request, *args, **kwargs)
-
-        # Modify each registered student's data
+    
         for student_data in registered_response.data:
-            student_data['department'] = student_data.get('department', {}).get('name', None)
+            department = student_data.get('department')
+            if isinstance(department, dict):
+                student_data['department'] = department.get('name')
+            else:
+                student_data['department'] = department  # keep string or None as is
+    
             student_id = student_data.get('id')
             try:
                 offer_letter = InternshipOfferLetter.objects.get(student_id=student_id)
                 student_data['company_name'] = offer_letter.company_name
             except InternshipOfferLetter.DoesNotExist:
                 student_data['company_name'] = None
-
+    
         # Prepare third year students with advisor name and year
         current_year = datetime.now().year
         third_year_students = []
+    
         for student in ThirdYearStudentList.objects.all():
             advisor_name = None
             if student.assigned_advisor_id:
@@ -66,7 +71,7 @@ class AdminStudentsListView(generics.ListAPIView):
                     advisor_name = f"{advisor.first_name or ''} {advisor.last_name or ''}".strip()
                 except Advisor.DoesNotExist:
                     advisor_name = None
-
+    
             third_year_students.append({
                 "university_id": student.university_id,
                 "full_name": student.full_name,
@@ -74,7 +79,7 @@ class AdminStudentsListView(generics.ListAPIView):
                 "assigned_advisor": advisor_name,
                 "internship_year": current_year
             })
-
+    
         return Response({
             "registered_students": registered_response.data,
             "third_year_students": third_year_students
@@ -349,4 +354,5 @@ class InternshipHistoryListView(generics.ListAPIView):
             return InternshipHistory.objects.filter(year=year)
         
         return InternshipHistory.objects.all()
+
 
