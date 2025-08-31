@@ -1,19 +1,10 @@
 #!/usr/bin/env bash
 
-set -o errexit  # Exit on error
+# Install dependencies
+pip install -r requirements.txt
 
-# Log the deployment start
-echo "Starting deployment..."
+# Run migrations
+python manage.py migrate
 
-# Upgrade pip
-python3 -m pip install --upgrade pip
-
-# Install required dependencies from requirements.txt
-pip3 install -r requirements.txt
-
-# Run database migrations (important step for Django setup)
-python3 manage.py migrate --no-input
-
-# Start the Gunicorn server
-echo "Starting Gunicorn server..."
-gunicorn aau_internB.wsgi:application --bind 0.0.0.0:$PORT
+# Collect static files (optional)
+python manage.py collectstatic --noinput
