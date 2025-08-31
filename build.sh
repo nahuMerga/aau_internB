@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 
-# Install dependencies
-pip install -r requirements.txt
+set -o errexit  # Exit on error
 
-# Run migrations
-python manage.py migrate
+# Log the deployment start
+echo "Starting deployment..."
 
-# Collect static files (optional)
-python manage.py collectstatic --noinput
+# Upgrade pip
+python3 -m pip install --upgrade pip
+
+# Install required dependencies from requirements.txt
+pip3 install -r requirements.txt
+
+# Run database migrations (important step for Django setup)
+python3 manage.py migrate --no-input
