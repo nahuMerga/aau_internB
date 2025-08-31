@@ -18,6 +18,9 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf.urls.static import static
 from django.conf import settings
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+
+
 
 
 
@@ -27,5 +30,10 @@ urlpatterns = [
     path('aau_api/advisor/', include('advisors.urls')), 
     path('aau_api/internship/', include('internships.urls')), 
     path('aau_api/telegram_bot/', include('telegram_bot.urls')),
+    
+    path('aau_api/doc/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('aau_api/doc/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('aau_api/doc/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
+
 
