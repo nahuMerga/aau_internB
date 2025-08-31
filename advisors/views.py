@@ -24,10 +24,13 @@ from django.core.mail import send_mail
 from rest_framework.exceptions import ValidationError
 from django.contrib.auth import password_validation
 from django.db import transaction
-from internships.models import ThirdYearStudentList 
+from internships.models import ThirdYearStudentList
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 class UpdateAdvisorProfileView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'advisor'
 
     def get_object(self, user):
         try:
@@ -35,6 +38,9 @@ class UpdateAdvisorProfileView(APIView):
         except Advisor.DoesNotExist:
             raise Http404
 
+
+    @method_decorator(cache_page(300))
+    @method_decorator(vary_on_headers('Authorization'))
     def get(self, request, *args, **kwargs):
         advisor = self.get_object(request.user)
         serializer = AdvisorProfileSerializer(advisor)
@@ -92,6 +98,7 @@ def clean_string(value):
 
 class AdvisorRegistrationView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'sensitive'
 
     def post(self, request):
         file = request.FILES.get('file')
@@ -190,6 +197,8 @@ class AdvisorRegistrationView(APIView):
         
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'sensitive' 
+    
     def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
@@ -205,6 +214,7 @@ class LoginView(APIView):
 
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = 'advisor'
 
     def post(self, request):
         try:
@@ -223,7 +233,10 @@ class AdvisorStudentsView(APIView):
     including offer letter, reports, dashboard stats, and third-year student list.
     """
     permission_classes = [AllowAny]
+    throttle_scope = 'advisor'
 
+    @method_decorator(cache_page(3600))
+    @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
         advisor = getattr(request.user, "advisor", None)
         if not advisor:
@@ -287,7 +300,10 @@ class AdvisorStudentsView(APIView):
 class StudentDetailView(APIView):
     """Retrieve details of a specific student using university_id"""
     permission_classes = [AllowAny]
+    throttle_scope = 'advisor'
 
+    @method_decorator(cache_page(1800))
+    @method_decorator(vary_on_headers('Authorization'))
     def get(self, request, university_id):
         # Automatically format university_id (UGR102517 → UGR/1025/17)
         if len(university_id) == 9:  # Assuming format is fixed
@@ -343,6 +359,7 @@ class StudentDetailView(APIView):
 class ApproveOfferLetterView(APIView):
     """Approve or reject an internship offer letter using the student's university_id"""
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'advisor'
 
     def put(self, request):
         university_id = request.data.get("university_id")
@@ -436,6 +453,7 @@ class ApproveOfferLetterView(APIView):
         
 class UpdateAdvisorSettingsView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'advisor'
 
     def put(self, request):
         advisor = getattr(request.user, "advisor", None)
@@ -447,5 +465,6 @@ class UpdateAdvisorSettingsView(APIView):
             serializer.save()
             return Response({"message": "Advisor settings updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
