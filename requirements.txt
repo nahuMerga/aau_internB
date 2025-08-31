@@ -17,5 +17,4 @@ django-redis
 pandas
 openpyxl
 django-background-tasks
-
-
+flower
