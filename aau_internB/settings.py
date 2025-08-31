@@ -181,6 +181,12 @@ CELERY_TIMEZONE = 'UTC'
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_EAGER_PROPAGATES = True
 
+if os.name == 'posix':
+    CELERY_WORKER_POOL = 'prefork'
+    CELERY_WORKER_CONCURRENCY = 10
+else:
+    CELERY_WORKER_POOL = 'solo'
+    CELERY_WORKER_CONCURRENCY = 1
 
 CELERY_TASK_ROUTES = {
     'students.tasks.*': {'queue': 'students'},
@@ -257,4 +263,5 @@ DEFAULT_FROM_EMAIL = 'aau57.sis@gmail.com'  # The "from" email address that will
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 
