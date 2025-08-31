@@ -11,7 +11,6 @@ from students.serializers import StudentSerializer, InternshipOfferLetterSeriali
 from advisors.serializers import AdvisorSerializer
 from internships.serializers import CompanySerializer
 from .models import Company, ThirdYearStudentList
-import pandas as pd
 from utils.generate_email import generate_email
 from utils.get_next_available_advisor import get_next_available_advisor
 from django.db import models
@@ -350,3 +349,4 @@ class InternshipHistoryListView(generics.ListAPIView):
             return InternshipHistory.objects.filter(year=year)
         
         return InternshipHistory.objects.all()
+
