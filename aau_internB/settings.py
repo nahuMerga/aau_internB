@@ -11,9 +11,10 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
-from datetime import timedelta
 import os
-
+from dotenv import load_dotenv
+from datetime import timedelta
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -22,32 +23,47 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-xw4*e&$qq2bzj3o7nesmeg$_#fnp^)3h#dv05lh)(g9rp2^+*3'
-
+SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG")
 
 ALLOWED_HOSTS = []
+
+CORS_ALLOW_ALL_ORIGINS = True
+ALLOWED_HOSTS = ['*']
+# ALLOWED_HOSTS = ['.vercel.app', '127.0.0.1']
 
 
 # Application definition
 
-INSTALLED_APPS = [
-    'corsheaders',
-    'background_task',
+DJANGO_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+]
+
+THIRD_PARTY_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
-    "students",
-    "advisors",
-    "internships",
-    "telegram_bot",
+    'rest_framework_simplejwt.token_blacklist',
+    'drf_spectacular',
+    'corsheaders',
+    'django_redis',
+    'whitenoise.runserver_nostatic',
+    'background_task',
 ]
+
+CUSTOM_APPS = [
+    'students',
+    'advisors',
+    'internships',
+    'telegram_bot',
+]
+
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + CUSTOM_APPS
 
 
 MIDDLEWARE = [
@@ -64,27 +80,43 @@ MIDDLEWARE = [
 
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
+    'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.BasicAuthentication",
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
     ],
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
+
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
     ],
+
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 35,
+
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.AnonRateThrottle',
+    ],
+
+    'DEFAULT_THROTTLE_RATES': {
+        'user': '2000/minute',
+        'anon': '2000/minute',
+        'admin_moderate': '2000/minute',
+        'admin_strict': '2000/minute',
+        'officer_light': '2000/minute',
+    },
+
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=10),  # Access token expiration time
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),  # Refresh token expiration time
-    'ROTATE_REFRESH_TOKENS': False,  # Whether to rotate refresh tokens
-    'BLACKLIST_AFTER_ROTATION': True,  # Whether to blacklist tokens after rotation
-    'UPDATE_LAST_LOGIN': True,  # Whether to update the last login time
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=10),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
 }
-
-CORS_ALLOW_ALL_ORIGINS = True
-ALLOWED_HOSTS = ['*']
-# ALLOWED_HOSTS = ['.vercel.app', '127.0.0.1']
 
 
 ROOT_URLCONF = 'aau_internB.urls'
@@ -109,26 +141,40 @@ WSGI_APPLICATION = 'aau_internB.wsgi.application'
 
 
 
-
-# Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'neondb',
-        'USER': 'neondb_owner',
-        'PASSWORD': 'npg_pbHl4cFE5kWC',
-        'HOST': 'ep-cold-star-a52mhjwz-pooler.us-east-2.aws.neon.tech',
-        'PORT': '5432',
+        'NAME': os.getenv("DB_NAME"),
+        'USER': os.getenv("DB_USER"),
+        'PASSWORD': os.getenv("DB_PASSWORD"),
+        'HOST': os.getenv("DB_HOST"),
+        'PORT': os.getenv("DB_PORT"),
         'OPTIONS': {
             'sslmode': 'require',
-        },
+            'channel_binding': 'require',
+        }
     }
 }
 
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL"),  # Use your .env value
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "PASSWORD": os.getenv("REDIS_TOKEN"),  # Secure token for Upstash
+        }
+    }
+}
 
-
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'AAU Internship Tracking API',
+    'DESCRIPTION': 'API for managing Internships at AAU',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': True,
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+    'SERVE_THROTTLE_CLASSES': [],
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -165,8 +211,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 # Static Files
-STATIC_URL = "/static/"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media Files (For Uploaded Documents & Reports)
 # MEDIA_URL = "/media/"
