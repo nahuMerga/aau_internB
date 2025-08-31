@@ -94,19 +94,24 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 35,
 
     'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.ScopedRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
         'rest_framework.throttling.AnonRateThrottle',
     ],
 
     'DEFAULT_THROTTLE_RATES': {
-        'user': '2000/minute',
-        'anon': '2000/minute',
-        'admin_moderate': '2000/minute',
-        'admin_strict': '2000/minute',
-        'officer_light': '2000/minute',
+        'user': '1000/day',           # General authenticated users
+        'anon': '100/day',            # Anonymous users
+        'advisor': '5000/day',        # Advisor-specific endpoints
+        'student': '2000/day',        # Student-specific endpoints
+        'admin': '10000/day',         # Admin endpoints
+        'sensitive': '10/hour',       # Login, registration, OTP
+        'upload': '50/day',           # File upload endpoints
     },
 
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    
+    'DEFAULT_CACHE_RESPONSE_TIMEOUT': 300,
 }
 
 
@@ -233,4 +238,5 @@ DEFAULT_FROM_EMAIL = 'aau57.sis@gmail.com'  # The "from" email address that will
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 
