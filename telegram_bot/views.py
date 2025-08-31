@@ -12,6 +12,9 @@ from .models import OTPVerification
 
 class SendOTPView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'sensetive'
+    throttle_classes = [ScopedRateThrottle]
+
     def post(self, request):
         university_id = request.data.get("university_id")
         if not university_id:
@@ -49,3 +52,4 @@ class SendOTPView(APIView):
             return Response({"error": f"Failed to send email: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({"message": "OTP has been sent to your institutional email."}, status=status.HTTP_200_OK)
+
