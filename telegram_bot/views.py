@@ -7,14 +7,11 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from internships.models import ThirdYearStudentList  
 from .models import OTPVerification
-
+from .tasks import send_otp_email_task
 
 
 class SendOTPView(APIView):
     permission_classes = [AllowAny]
-    throttle_scope = 'sensitive'
-    throttle_classes = [ScopedRateThrottle]
-
     def post(self, request):
         university_id = request.data.get("university_id")
         if not university_id:
@@ -40,17 +37,11 @@ class SendOTPView(APIView):
             }
         )
 
-        try:
-            send_mail(
-                subject="Your AAU Internship OTP Code",
-                message=f"Hello {student.full_name},\n\nYour OTP code is: {otp_code}\nIt is valid for 10 minutes.\n\nAAU Internship Team",
-                from_email="aau57.sis@gmail.com", 
-                recipient_list=[student.institutional_email],  
-                fail_silently=False,
-            )
-        except Exception as e:
-            return Response({"error": f"Failed to send email: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        send_otp_email_task.delay(
+            university_id, 
+            student.full_name, 
+            student.institutional_email, 
+            otp_code
+        )
 
         return Response({"message": "OTP has been sent to your institutional email."}, status=status.HTTP_200_OK)
-
-
