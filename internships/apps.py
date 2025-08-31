@@ -9,3 +9,4 @@ class InternshipsConfig(AppConfig):
         pass
         # from .tasks import start_scheduler
         # start_scheduler()
+        import internships.signals
