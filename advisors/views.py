@@ -27,6 +27,7 @@ from django.db import transaction
 from internships.models import ThirdYearStudentList
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
 
 class UpdateAdvisorProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -465,6 +466,7 @@ class UpdateAdvisorSettingsView(APIView):
             serializer.save()
             return Response({"message": "Advisor settings updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
