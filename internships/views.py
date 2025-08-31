@@ -25,6 +25,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_headers
 from rest_framework.throttling import ScopedRateThrottle
+from .tasks import process_student_excel_task
 
 
 class AdminStudentsListView(generics.ListAPIView):
@@ -306,52 +307,24 @@ class UploadStudentExcelView(APIView):
             return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            df = pd.read_excel(excel_file)
-            required_columns = {'university_id', 'full_name'}
-            if not required_columns.issubset(df.columns):
-                return Response({
-                    "error": f"Missing columns. Required: {required_columns}"
-                }, status=status.HTTP_400_BAD_REQUEST)
+            # Save file to temporary location
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
+                for chunk in excel_file.chunks():
+                    tmp_file.write(chunk)
+                tmp_file_path = tmp_file.name
 
-            created_students = []
-            advisors = Advisor.objects.all().annotate(current_load=models.Count('thirdyearstudentlist'))
-
-            for _, row in df.iterrows():
-                university_id = str(row['university_id']).strip()[:20]
-                full_name = str(row['full_name']).strip()
-
-                if ThirdYearStudentList.objects.filter(university_id=university_id).exists():
-                    continue
-
-                email = generate_email(full_name, university_id)
-                advisor = get_next_available_advisor()
-                if not advisor:
-                    return Response({"error": "No available advisor."}, status=status.HTTP_400_BAD_REQUEST)
-
-                student = ThirdYearStudentList.objects.create(
-                    university_id=university_id,
-                    full_name=full_name,
-                    institutional_email=email,
-                    assigned_advisor=advisor
-                )
-
-                created_students.append({
-                    "university_id": university_id,
-                    "full_name": full_name,
-                    "email": email,
-                    "advisor": advisor.first_name
-                })
-
-            # ✅ Send emails immediately to each advisor
-            for advisor in Advisor.objects.all():
-                notify_advisor_immediately(advisor.id)
+            # Process file asynchronously with Celery
+            process_student_excel_task.delay(tmp_file_path)
 
             return Response({
-                "message": f"{len(created_students)} students uploaded successfully.",
-                "data": created_students
-            }, status=status.HTTP_201_CREATED)
+                "message": "Student upload is being processed. You will be notified when complete.",
+                "task_status": "processing"
+            }, status=status.HTTP_202_ACCEPTED)
 
         except Exception as e:
+            # Clean up temporary file if error occurs
+            if 'tmp_file_path' in locals() and os.path.exists(tmp_file_path):
+                os.unlink(tmp_file_path)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -377,4 +350,3 @@ class InternshipHistoryListView(generics.ListAPIView):
             return InternshipHistory.objects.filter(year=year)
         
         return InternshipHistory.objects.all()
-
