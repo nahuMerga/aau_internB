@@ -1,32 +1,29 @@
-# aau_internB/celery.py
 import os
 import ssl
 from celery import Celery
 from dotenv import load_dotenv
 
-# Load environment variables (optional if using Render env vars)
 load_dotenv()
-
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'aau_internB.settings')
 
 app = Celery('aau_internB')
 
-# SSL options for Upstash Redis
-ssl_opts = {'ssl_cert_reqs': ssl.CERT_NONE}
+redis_url = os.getenv("REDIS_URL")
 
 app.conf.update(
-    broker_url=os.getenv("REDIS_URL"),
-    result_backend=os.getenv("REDIS_URL"),
+    broker_url=redis_url,
+    result_backend=redis_url,
+
     accept_content=['json'],
     task_serializer='json',
     result_serializer='json',
     timezone='UTC',
-    broker_use_ssl=ssl_opts,
-    result_backend_transport_options=ssl_opts,
 )
 
-app.autodiscover_tasks()
+# Add SSL only if using rediss://
+if redis_url.startswith("rediss://"):
+    ssl_config = {"ssl_cert_reqs": ssl.CERT_NONE}  # or CERT_REQUIRED if you want real validation
+    app.conf.broker_use_ssl = ssl_config
+    app.conf.redis_backend_use_ssl = ssl_config
 
-@app.task(bind=True)
-def debug_task(self):
-    print(f'Request: {self.request!r}')
+app.autodiscover_tasks()
